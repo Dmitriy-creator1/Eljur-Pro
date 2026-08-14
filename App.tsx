@@ -529,7 +529,7 @@ export default function App() {
       <SeasonalBackground enabled={showAnimations} timeOffset={appState.settings.systemTimeOffset} />
 
       {!currentUser ? (
-        <Login users={appState.users} onLogin={handleLogin} schoolName={localStorage.getItem('eljur_last_school_name') || 'ЭлЖур'} settings={appState.settings} />
+        <Login users={appState.users} onLogin={handleLogin} schoolName={localStorage.getItem('eljur_last_school_name') || 'ЭлЖур'} settings={appState.settings} onShowInfo={() => setShowEljurInfo(true)} />
       ) : (
         <>
           {/* Header */}
@@ -608,11 +608,12 @@ export default function App() {
             &copy; {new Date().getFullYear()} {t('footer_text')}.
           </footer>
           
-          <Modal isOpen={showEljurInfo} onClose={() => setShowEljurInfo(false)} title={lang === 'ru' ? 'Информация об ЭлЖуре' : 'Eljur Info'} maxWidth="max-w-5xl w-full">
-            {renderEljurInfo()}
-          </Modal>
         </>
       )}
+
+      <Modal isOpen={showEljurInfo} onClose={() => setShowEljurInfo(false)} title={lang === 'ru' ? 'Информация об ЭлЖуре' : 'Eljur Info'} maxWidth="max-w-5xl w-full">
+        {renderEljurInfo()}
+      </Modal>
     </div>
   );
 }

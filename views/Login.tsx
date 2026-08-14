@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User, Role } from '../types';
 import { Button, Input, Select, Card, Modal } from '../components/ui';
 import { Eye, EyeOff } from 'lucide-react';
@@ -10,9 +10,10 @@ interface LoginProps {
   onLogin: (u: User) => void;
   schoolName: string;
   settings?: { secretKey?: string, secretCount?: number, adminPassword?: string, language?: 'ru' | 'en' };
+  onShowInfo?: () => void;
 }
 
-export default function Login({ users, onLogin, schoolName, settings }: LoginProps) {
+export default function Login({ users, onLogin, schoolName, settings, onShowInfo }: LoginProps) {
   // role state can now include 'employee' explicitly
   const [role, setRole] = useState<Role>('student');
   const [login, setLogin] = useState('');
@@ -31,6 +32,8 @@ export default function Login({ users, onLogin, schoolName, settings }: LoginPro
   const realAdminPass = settings?.adminPassword || 'admin';
   const lang = settings?.language || 'ru';
   const t = (k: string) => H.t(k, lang);
+  
+  const clickTimeoutRef = useRef<any>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -60,18 +63,23 @@ export default function Login({ users, onLogin, schoolName, settings }: LoginPro
   }, [secretKey, secretTriggerCount, showAdminModal, login, password, role]); // Depend on login inputs for closure capture
 
   const handleIconTap = () => {
-    if (window.innerWidth > 1024) return; // Only allow on mobile/tablet
-    
-    setIconTapCount(prev => {
-      const next = prev + 1;
-      if (next >= secretTriggerCount) {
-        setShowAdminModal(true);
-        return 0;
-      }
-      return next;
-    });
-    // Reset count after 1s if not pressed quickly
-    setTimeout(() => setIconTapCount(0), 1000);
+    if (window.innerWidth <= 1024) {
+      setIconTapCount(prev => {
+        const next = prev + 1;
+        if (next >= secretTriggerCount) {
+          setShowAdminModal(true);
+          if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
+          return 0;
+        }
+        return next;
+      });
+      setTimeout(() => setIconTapCount(0), 1000);
+    }
+
+    if (clickTimeoutRef.current) clearTimeout(clickTimeoutRef.current);
+    clickTimeoutRef.current = setTimeout(() => {
+       if (onShowInfo && !showAdminModal) onShowInfo();
+    }, 250);
   };
 
   const handleAuth = (e?: React.FormEvent) => {
