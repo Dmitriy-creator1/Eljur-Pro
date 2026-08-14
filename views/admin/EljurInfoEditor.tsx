@@ -23,6 +23,12 @@ interface FloatingElement {
   style?: React.CSSProperties;
 }
 
+interface Snapshot {
+  quillContent: string;
+  elements: FloatingElement[];
+  backgroundImage: string | null;
+}
+
 interface Props {
   state: AppState;
   onUpdate: (s: AppState) => void;
@@ -83,34 +89,77 @@ export function EljurInfoEditor({ state, onUpdate, lang, setHasUnsavedChanges }:
     loadFonts();
   }, []);
 
-  // History for elements
-  const pastElementsRef = useRef<FloatingElement[][]>([]);
-  const futureElementsRef = useRef<FloatingElement[][]>([]);
+  // Global History state
+  const pastRef = useRef<Snapshot[]>([]);
+  const futureRef = useRef<Snapshot[]>([]);
   const elementsRef = useRef(elements);
   elementsRef.current = elements;
+  const backgroundImageRef = useRef(backgroundImage);
+  backgroundImageRef.current = backgroundImage;
+  const quillContentRef = useRef(quillContent);
+  quillContentRef.current = quillContent;
 
-  const pushElementsHistory = (newElements: FloatingElement[]) => {
-    pastElementsRef.current.push(elementsRef.current);
-    futureElementsRef.current = [];
-    setElements(newElements);
+  const saveToPast = useCallback(() => {
+    pastRef.current.push({
+      quillContent: quillContentRef.current,
+      elements: elementsRef.current,
+      backgroundImage: backgroundImageRef.current
+    });
+    if (pastRef.current.length > 100) pastRef.current.shift();
+    futureRef.current = [];
+  }, []);
+
+  const globalUndo = useCallback(() => {
+    if (pastRef.current.length === 0) return;
+    const previous = pastRef.current.pop()!;
+    futureRef.current.push({
+      quillContent: quillContentRef.current,
+      elements: elementsRef.current,
+      backgroundImage: backgroundImageRef.current
+    });
+    setQuillContent(previous.quillContent);
+    setElements(previous.elements);
+    setBackgroundImage(previous.backgroundImage);
     if (setHasUnsavedChanges) setHasUnsavedChanges(true);
+  }, [setHasUnsavedChanges]);
+
+  const globalRedo = useCallback(() => {
+    if (futureRef.current.length === 0) return;
+    const next = futureRef.current.pop()!;
+    pastRef.current.push({
+      quillContent: quillContentRef.current,
+      elements: elementsRef.current,
+      backgroundImage: backgroundImageRef.current
+    });
+    setQuillContent(next.quillContent);
+    setElements(next.elements);
+    setBackgroundImage(next.backgroundImage);
+    if (setHasUnsavedChanges) setHasUnsavedChanges(true);
+  }, [setHasUnsavedChanges]);
+
+  const globalUndoRef = useRef(globalUndo);
+  globalUndoRef.current = globalUndo;
+  const globalRedoRef = useRef(globalRedo);
+  globalRedoRef.current = globalRedo;
+
+  const isTypingRef = useRef(false);
+  const snapshotTimeoutRef = useRef<any>(null);
+
+  const handleQuillChange = (val: string) => {
+    if (val === quillContentRef.current) return;
+
+    if (!isTypingRef.current) {
+      saveToPast();
+      isTypingRef.current = true;
+    }
+    setQuillContent(val);
+    if (setHasUnsavedChanges) setHasUnsavedChanges(true);
+
+    clearTimeout(snapshotTimeoutRef.current);
+    snapshotTimeoutRef.current = setTimeout(() => {
+      isTypingRef.current = false;
+    }, 1000);
   };
-
-  const undoElements = useCallback(() => {
-    if (pastElementsRef.current.length === 0) return;
-    const prev = pastElementsRef.current.pop()!;
-    futureElementsRef.current.push(elementsRef.current);
-    setElements(prev);
-    if (setHasUnsavedChanges) setHasUnsavedChanges(true);
-  }, [setHasUnsavedChanges]);
-
-  const redoElements = useCallback(() => {
-    if (futureElementsRef.current.length === 0) return;
-    const next = futureElementsRef.current.pop()!;
-    pastElementsRef.current.push(elementsRef.current);
-    setElements(next);
-    if (setHasUnsavedChanges) setHasUnsavedChanges(true);
-  }, [setHasUnsavedChanges]);
 
   useEffect(() => {
     const info = state.settings.eljurInfo || '';
@@ -148,6 +197,7 @@ export function EljurInfoEditor({ state, onUpdate, lang, setHasUnsavedChanges }:
   };
 
   const handleClear = () => {
+    saveToPast();
     setElements([]);
     setQuillContent('');
     setBackgroundImage(null);
@@ -188,7 +238,8 @@ export function EljurInfoEditor({ state, onUpdate, lang, setHasUnsavedChanges }:
       rotation: 0,
       content: lang === 'ru' ? 'Новый текст' : 'New text'
     };
-    pushElementsHistory([...elementsRef.current, newEl]);
+    saveToPast();
+    setElements([...elementsRef.current, newEl]);
     setSelectedId(newEl.id);
   };
 
@@ -208,6 +259,7 @@ export function EljurInfoEditor({ state, onUpdate, lang, setHasUnsavedChanges }:
           const arrayBuffer = e.target?.result as ArrayBuffer;
           try {
             const result = await mammoth.convertToHtml({ arrayBuffer });
+            saveToPast();
             setQuillContent(result.value);
             if (setHasUnsavedChanges) setHasUnsavedChanges(true);
           } catch (err) {
@@ -230,12 +282,19 @@ export function EljurInfoEditor({ state, onUpdate, lang, setHasUnsavedChanges }:
       if (file) {
         const reader = new FileReader();
         reader.onload = (e) => {
+          saveToPast();
           setBackgroundImage(e.target?.result as string);
           if (setHasUnsavedChanges) setHasUnsavedChanges(true);
         };
         reader.readAsDataURL(file);
       }
     };
+  };
+
+  const handleRemoveBackground = () => {
+    saveToPast();
+    setBackgroundImage(null);
+    if (setHasUnsavedChanges) setHasUnsavedChanges(true);
   };
 
   const addMediaHandler = (accept: string) => {
@@ -261,7 +320,8 @@ export function EljurInfoEditor({ state, onUpdate, lang, setHasUnsavedChanges }:
             rotation: 0,
             src
           };
-          pushElementsHistory([...elementsRef.current, newEl]);
+          saveToPast();
+          setElements([...elementsRef.current, newEl]);
           setSelectedId(newEl.id);
         };
         reader.readAsDataURL(file);
@@ -309,7 +369,8 @@ export function EljurInfoEditor({ state, onUpdate, lang, setHasUnsavedChanges }:
       rotation: 0,
       src: embedUrl
     };
-    pushElementsHistory([...elementsRef.current, newEl]);
+    saveToPast();
+    setElements([...elementsRef.current, newEl]);
     setSelectedId(newEl.id);
     setShowVideoModal(false);
     setVideoUrlInput('');
@@ -323,11 +384,6 @@ export function EljurInfoEditor({ state, onUpdate, lang, setHasUnsavedChanges }:
   const modules = useMemo(() => {
     const fontOptions = [false, 'serif', 'monospace', ...customFonts.map(f => f.name)];
     return {
-      history: {
-        delay: 500,
-        maxStack: 100,
-        userOnly: true
-      },
       toolbar: {
         container: [
           ['undo', 'redo'],
@@ -345,12 +401,27 @@ export function EljurInfoEditor({ state, onUpdate, lang, setHasUnsavedChanges }:
           ['clean']
         ],
         handlers: {
-          undo: function(this: any) { this.quill.history.undo(); },
-          redo: function(this: any) { this.quill.history.redo(); },
+          undo: () => globalUndoRef.current(),
+          redo: () => globalRedoRef.current(),
           addText: () => addTextShapeRef.current(),
           image: () => addMediaHandlerRef.current('image/*'),
           videoUpload: () => addMediaHandlerRef.current('video/*'),
           video: () => addVideoLinkHandlerRef.current()
+        }
+      },
+      keyboard: {
+        bindings: {
+          undo: {
+            key: 'Z',
+            shortKey: true,
+            handler: () => { globalUndoRef.current(); return false; }
+          },
+          redo: {
+            key: 'Z',
+            shortKey: true,
+            shiftKey: true,
+            handler: () => { globalRedoRef.current(); return false; }
+          }
         }
       }
     };
@@ -389,8 +460,9 @@ export function EljurInfoEditor({ state, onUpdate, lang, setHasUnsavedChanges }:
   }, [lang, customFonts, modules]);
 
   const updateElement = (id: string, updates: Partial<FloatingElement>) => {
-    const newElements = elementsRef.current.map(el => el.id === id ? { ...el, ...updates } : el);
-    pushElementsHistory(newElements);
+    saveToPast();
+    setElements(prev => prev.map(el => el.id === id ? { ...el, ...updates } : el));
+    if (setHasUnsavedChanges) setHasUnsavedChanges(true);
   };
 
   const updateElementNoHistory = (id: string, updates: Partial<FloatingElement>) => {
@@ -398,9 +470,10 @@ export function EljurInfoEditor({ state, onUpdate, lang, setHasUnsavedChanges }:
   };
 
   const deleteElement = (id: string) => {
-    const newElements = elementsRef.current.filter(el => el.id !== id);
-    pushElementsHistory(newElements);
+    saveToPast();
+    setElements(prev => prev.filter(el => el.id !== id));
     if (selectedId === id) setSelectedId(null);
+    if (setHasUnsavedChanges) setHasUnsavedChanges(true);
   };
 
   useEffect(() => {
@@ -410,35 +483,26 @@ export function EljurInfoEditor({ state, onUpdate, lang, setHasUnsavedChanges }:
         return;
       }
       
-      // If focus is inside Quill editor, let Quill handle its own history
-      if ((e.target as HTMLElement).closest('.ql-container')) {
-        return;
-      }
-
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'z') {
         e.preventDefault();
-        redoElements();
+        globalRedo();
       } else if (e.ctrlKey && e.key.toLowerCase() === 'z') {
         e.preventDefault();
-        undoElements();
+        globalUndo();
       }
     };
 
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [undoElements, redoElements]);
+  }, [globalUndo, globalRedo]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // Keep this for backward compatibility or specific container focus
-    if ((e.target as HTMLElement).closest('.ql-container') || (e.target as HTMLElement).tagName === 'INPUT') {
-      return;
-    }
     if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'z') {
       e.preventDefault();
-      redoElements();
+      globalRedo();
     } else if (e.ctrlKey && e.key.toLowerCase() === 'z') {
       e.preventDefault();
-      undoElements();
+      globalUndo();
     }
   };
 
@@ -524,6 +588,12 @@ export function EljurInfoEditor({ state, onUpdate, lang, setHasUnsavedChanges }:
             <ImagePlus size={16} />
             {lang === 'ru' ? 'Загрузить фон' : 'Upload Background'}
           </Button>
+          {backgroundImage && (
+            <Button variant="outline" size="sm" onClick={handleRemoveBackground} className="flex items-center gap-2 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30">
+              <Trash2 size={16} />
+              {lang === 'ru' ? 'Удалить фон' : 'Remove Background'}
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={addTextShape} className="flex items-center gap-2">
             <Type size={16} />
             {lang === 'ru' ? 'Добавить текст' : 'Add Text'}
@@ -556,10 +626,7 @@ export function EljurInfoEditor({ state, onUpdate, lang, setHasUnsavedChanges }:
           ref={quillRef}
           theme="snow" 
           value={quillContent} 
-          onChange={(val) => {
-            setQuillContent(val);
-            if (setHasUnsavedChanges) setHasUnsavedChanges(true);
-          }} 
+          onChange={handleQuillChange} 
           modules={modules}
           className="flex-1 flex flex-col pb-12"
         />
@@ -593,12 +660,37 @@ export function EljurInfoEditor({ state, onUpdate, lang, setHasUnsavedChanges }:
                   type="range" 
                   min="0" max="360" 
                   value={el.rotation || 0} 
+                  onMouseDown={() => saveToPast()}
+                  onTouchStart={() => saveToPast()}
                   onChange={(e) => updateElementNoHistory(el.id, { rotation: parseInt(e.target.value) })}
-                  onMouseUp={() => pushElementsHistory(elementsRef.current)}
-                  onTouchEnd={() => pushElementsHistory(elementsRef.current)}
                   className="w-24 accent-blue-500"
                   title="Поворот"
                 />
+                {el.type === 'text' && (
+                  <>
+                    <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
+                    <div className="flex items-center gap-1" title={lang === 'ru' ? 'Цвет текста' : 'Text Color'}>
+                      <span className="text-xs font-medium text-slate-500">T</span>
+                      <input 
+                        type="color" 
+                        value={el.style?.color || '#000000'}
+                        onMouseDown={() => saveToPast()}
+                        onChange={(e) => updateElementNoHistory(el.id, { style: { ...el.style, color: e.target.value } })}
+                        className="w-6 h-6 p-0 border-0 rounded cursor-pointer"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1" title={lang === 'ru' ? 'Цвет фона' : 'Background Color'}>
+                      <span className="text-xs font-medium text-slate-500">bg</span>
+                      <input 
+                        type="color" 
+                        value={el.style?.backgroundColor || '#ffffff'}
+                        onMouseDown={() => saveToPast()}
+                        onChange={(e) => updateElementNoHistory(el.id, { style: { ...el.style, backgroundColor: e.target.value } })}
+                        className="w-6 h-6 p-0 border-0 rounded cursor-pointer"
+                      />
+                    </div>
+                  </>
+                )}
               </div>
             )}
             
@@ -615,7 +707,8 @@ export function EljurInfoEditor({ state, onUpdate, lang, setHasUnsavedChanges }:
                   suppressContentEditableWarning
                   onBlur={(e) => updateElement(el.id, { content: DOMPurify.sanitize(e.currentTarget.innerHTML) })}
                   dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(el.content || '') }}
-                  className={`w-full h-full p-3 bg-white/90 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-600 rounded shadow-sm overflow-auto outline-none ${selectedId === el.id ? 'cancel-drag cursor-text' : 'cursor-move'}`}
+                  style={{ color: el.style?.color, backgroundColor: el.style?.backgroundColor, borderColor: el.style?.backgroundColor ? 'transparent' : undefined }}
+                  className={`w-full h-full p-3 border border-slate-300 dark:border-slate-600 rounded shadow-sm overflow-auto outline-none ${!el.style?.backgroundColor ? 'bg-white/90 dark:bg-slate-800/90' : ''} ${selectedId === el.id ? 'cancel-drag cursor-text' : 'cursor-move'}`}
                 />
               ) : el.type === 'iframe' ? (
                 <>
