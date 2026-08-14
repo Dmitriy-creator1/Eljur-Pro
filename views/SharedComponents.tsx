@@ -30,6 +30,9 @@ export const Messaging: React.FC<MessagingProps> = ({ state, onUpdate, currentUs
   // Edit Mode
   const [editId, setEditId] = useState<string | null>(null);
 
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+  const toggleExpand = (id: string) => setExpandedItems(prev => ({...prev, [id]: !prev[id]}));
+
   const lang = state.settings.language || 'ru';
   const t = (k: string) => H.t(k, lang);
 
@@ -152,7 +155,7 @@ export const Messaging: React.FC<MessagingProps> = ({ state, onUpdate, currentUs
   };
 
   const handleReply = (m: Message, senderId: string) => {
-     setComposeTitle(m.title.startsWith('Re:') ? m.title : `Re: ${m.title}`);
+     setComposeTitle(`Re: ${m.title}`);
      setComposeBody(`\n\n--- ${t('original_message')} ---\n${m.body}`);
      setComposeTo([senderId]);
      setFiles([]); 
@@ -425,6 +428,20 @@ export const Messaging: React.FC<MessagingProps> = ({ state, onUpdate, currentUs
             const canReply = activeTab === 'inbox' && !isAnnounce && sender && userOptions.some(opt => opt.value === sender.id);
 
             const recipients = !isAnnounce ? item.toIds.map(id => state.users.find(u => u.id === id)?.fio).join(', ') : 'Все';
+
+            const textLines = (item.body || '').split('\n');
+            const allAttachments: {id: string, name: string}[] = [];
+            if (item.attachmentId) allAttachments.push({ id: item.attachmentId, name: item.attachmentName || '' });
+            if (item.attachments) allAttachments.push(...item.attachments);
+
+            const totalItemsCount = textLines.length + allAttachments.length;
+            const isLarge = totalItemsCount > 4;
+            const isExpanded = expandedItems[item.id];
+
+            const visibleTextLines = (isLarge && !isExpanded) ? textLines.slice(0, 4) : textLines;
+            const remainingSlotsForAttachments = (isLarge && !isExpanded) ? Math.max(0, 4 - visibleTextLines.length) : allAttachments.length;
+            const visibleAttachments = (isLarge && !isExpanded) ? allAttachments.slice(0, remainingSlotsForAttachments) : allAttachments;
+
             return (
               <Card key={item.id} className="p-6 hover:shadow-md transition duration-200 border-l-[6px] border-l-blue-500 dark:border-l-blue-600">
                 <div className="flex justify-between items-start mb-3">
@@ -457,9 +474,22 @@ export const Messaging: React.FC<MessagingProps> = ({ state, onUpdate, currentUs
                      </button>
                   )}
                 </div>
-                <p className="whitespace-pre-wrap text-slate-700 leading-relaxed dark:text-slate-300">{item.body}</p>
-                {item.attachmentId && <FileDisplay id={item.attachmentId} name={item.attachmentName} lang={lang as 'ru'|'en'} />}
-                {(item.attachments || []).map((att: Attachment) => <FileDisplay key={att.id} id={att.id} name={att.name} lang={lang as 'ru'|'en'} />)}
+                <p className="whitespace-pre-wrap text-slate-700 leading-relaxed dark:text-slate-300">
+                  {visibleTextLines.join('\n')}
+                  {isLarge && !isExpanded && visibleTextLines.length < textLines.length && '...'}
+                </p>
+                {visibleAttachments.map(att => <FileDisplay key={att.id} id={att.id} name={att.name} lang={lang as 'ru'|'en'} />)}
+                
+                {isLarge && (
+                  <div className="mt-4">
+                    <button 
+                      onClick={() => toggleExpand(item.id)}
+                      className="text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                    >
+                      {isExpanded ? (lang === 'ru' ? 'Свернуть' : 'Collapse') : (lang === 'ru' ? 'Развернуть' : 'Expand')}
+                    </button>
+                  </div>
+                )}
               </Card>
             )
           })}
