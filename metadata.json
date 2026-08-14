@@ -1,0 +1,5 @@
+{
+  "name": "33 проба",
+  "description": "A comprehensive, local-first electronic journal system for schools. Features role-based access (Director, Teacher, Student, Admin), offline data storage (IndexedDB), schedule management with auto-generation, gradebooks, messaging, and file attachments.",
+  "requestFramePermissions": []
+}
