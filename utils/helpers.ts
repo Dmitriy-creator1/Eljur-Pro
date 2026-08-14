@@ -4,6 +4,8 @@ import { Lesson, ScheduleSettings } from '../types';
 // --- TRANSLATION DICTIONARY ---
 export const DICT: Record<string, Record<string, string>> = {
   ru: {
+    reply: 'Ответить',
+    original_message: 'Исходное сообщение',
     schedule: 'Расписание',
     homework: 'Домашние задания',
     journal: 'Журнал',
@@ -498,6 +500,8 @@ export const DICT: Record<string, Record<string, string>> = {
     manual: 'Вручную',
   },
   en: {
+    reply: 'Reply',
+    original_message: 'Original message',
     schedule: 'Schedule',
     homework: 'Homework',
     journal: 'Gradebook',

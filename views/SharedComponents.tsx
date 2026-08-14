@@ -151,6 +151,15 @@ export const Messaging: React.FC<MessagingProps> = ({ state, onUpdate, currentUs
     setActiveTab('sent');
   };
 
+  const handleReply = (m: Message, senderId: string) => {
+     setComposeTitle(m.title.startsWith('Re:') ? m.title : `Re: ${m.title}`);
+     setComposeBody(`\n\n--- ${t('original_message')} ---\n${m.body}`);
+     setComposeTo([senderId]);
+     setFiles([]); 
+     setEditId(null);
+     setActiveTab('compose');
+  };
+
   const deleteItem = (id: string) => {
      if(!confirm(t('delete_msg_confirm'))) return;
      if (isAnnounce) {
@@ -413,6 +422,8 @@ export const Messaging: React.FC<MessagingProps> = ({ state, onUpdate, currentUs
             const sender = state.users.find(u => u.id === item.fromId);
             const realAuthor = item.realAuthorId ? state.users.find(u => u.id === item.realAuthorId) : null;
             
+            const canReply = activeTab === 'inbox' && !isAnnounce && sender && userOptions.some(opt => opt.value === sender.id);
+
             const recipients = !isAnnounce ? item.toIds.map(id => state.users.find(u => u.id === id)?.fio).join(', ') : 'Все';
             return (
               <Card key={item.id} className="p-6 hover:shadow-md transition duration-200 border-l-[6px] border-l-blue-500 dark:border-l-blue-600">
@@ -428,16 +439,23 @@ export const Messaging: React.FC<MessagingProps> = ({ state, onUpdate, currentUs
                        )}
                    </div>
                 </div>
-                <div className="text-xs text-slate-500 mb-4 pb-4 border-b border-slate-100 flex gap-6 dark:border-slate-800 dark:text-slate-400">
-                  <span className="flex items-center gap-2">
-                      {t('from')}: <span className="font-bold text-slate-700 dark:text-slate-300">{H.formatShortName(sender?.fio || 'Unknown')}</span>
-                      {realAuthor && (
-                          <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded border border-amber-200 dark:bg-amber-900/40 dark:text-amber-300" title={`${t('sent_by_emp')}: ${realAuthor.fio}`}>
-                             ({t('executed_by')} {H.formatShortName(realAuthor.fio)})
-                          </span>
-                      )}
-                  </span>
-                  {activeTab === 'sent' && <span>{t('to')}: <span className="font-bold text-slate-700 dark:text-slate-300">{recipients}</span></span>}
+                <div className="text-xs text-slate-500 mb-4 pb-4 border-b border-slate-100 flex justify-between items-center dark:border-slate-800 dark:text-slate-400">
+                  <div className="flex gap-6">
+                    <span className="flex items-center gap-2">
+                        {t('from')}: <span className="font-bold text-slate-700 dark:text-slate-300">{H.formatShortName(sender?.fio || 'Unknown')}</span>
+                        {realAuthor && (
+                            <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded border border-amber-200 dark:bg-amber-900/40 dark:text-amber-300" title={`${t('sent_by_emp')}: ${realAuthor.fio}`}>
+                               ({t('executed_by')} {H.formatShortName(realAuthor.fio)})
+                            </span>
+                        )}
+                    </span>
+                    {activeTab === 'sent' && <span>{t('to')}: <span className="font-bold text-slate-700 dark:text-slate-300">{recipients}</span></span>}
+                  </div>
+                  {canReply && sender && (
+                     <button onClick={() => handleReply(item, sender.id)} className="text-blue-600 font-semibold hover:underline">
+                         {t('reply')}
+                     </button>
+                  )}
                 </div>
                 <p className="whitespace-pre-wrap text-slate-700 leading-relaxed dark:text-slate-300">{item.body}</p>
                 {item.attachmentId && <FileDisplay id={item.attachmentId} name={item.attachmentName} lang={lang as 'ru'|'en'} />}
