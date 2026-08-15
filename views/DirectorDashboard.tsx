@@ -17,7 +17,7 @@ interface Props {
 }
 
 export default function DirectorDashboard({ state, onUpdate, user }: Props) {
-  const [view, setView] = useState<'users' | 'schedule' | 'rating' | 'messages' | 'announcements' | 'load' | 'groups' | 'grading' | 'homeroom'>(() => {
+  const [view, setView] = useState<'users' | 'schedule' | 'rating' | 'messages' | 'announcements' | 'load' | 'groups' | 'grading'>(() => {
     return (localStorage.getItem(`eljur_tab_${user.id}`) as any) || 'users';
   });
 
@@ -52,7 +52,6 @@ export default function DirectorDashboard({ state, onUpdate, user }: Props) {
         {view === 'grading' && <GradingSetup state={state} onUpdate={onUpdate} />}
         {view === 'messages' && <Messaging state={state} onUpdate={onUpdate} currentUser={user} type="messages" />}
         {view === 'announcements' && <Messaging state={state} onUpdate={onUpdate} currentUser={user} type="announcements" />}
-        {view === 'homeroom' && <HomeroomView state={state} user={user} />}
       </div>
     </div>
   );

@@ -182,7 +182,7 @@ const SeasonalBackground = React.memo(({ enabled, timeOffset }: { enabled: boole
 });
 
 export default function App() {
-  const [globalState, setGlobalState] = useState<any>(null);
+  const [appState, setAppState] = useState<AppState | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'dashboard' | 'settings'>('dashboard');
@@ -190,121 +190,11 @@ export default function App() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [customFonts, setCustomFonts] = useState<{name: string, displayName: string}[]>([]);
 
-  // Projected state for the current user's school
-  const appState = React.useMemo(() => {
-    if (!globalState) return null;
-    if (!currentUser) return globalState as AppState; // Login screen sees global
-
-    if (currentUser.role === 'creator') {
-        const merged: any = { ...globalState };
-        merged.classes = [];
-        merged.subjects = [];
-        merged.schedules = {};
-        merged.grades = {};
-        merged.finalGrades = {};
-        merged.homework = [];
-        merged.messages = [];
-        merged.announcements = [];
-        merged.teacherAssignments = [];
-        merged.studentGroups = [];
-        merged.gradingSystem = { minGrade: 2, maxGrade: 5, useWeights: true, minWeight: 1, maxWeight: 10 };
-        merged.gradeTypes = [];
-        merged.subjectRequirements = {};
-        merged.quarters = {Q1:[],Q2:[],Q3:[],Q4:[]};
-        merged.scheduleSettings = { daysToAddBatch: 1, skippedWeekDays: [0], holidays: [], vacations: [], quarterDefinitions: { 'Q1': { start: '', end: '' }, 'Q2': { start: '', end: '' }, 'Q3': { start: '', end: '' }, 'Q4': { start: '', end: '' } } };
-        
-        Object.entries(globalState.schoolData || {}).forEach(([sId, sd]: [string, any]) => {
-             if (sd.classes) merged.classes.push(...sd.classes.map((c: any) => ({...c, class: `${sId}__${c.class}`})));
-             if (sd.subjects) merged.subjects.push(...sd.subjects.map((s: string) => `${sId}__${s}`));
-             if (sd.grades) Object.keys(sd.grades).forEach(k => merged.grades[`${sId}__${k}`] = sd.grades[k]);
-             if (sd.schedules) Object.keys(sd.schedules).forEach(k => merged.schedules[`${sId}__${k}`] = sd.schedules[k]);
-             if (sd.finalGrades) Object.keys(sd.finalGrades).forEach(k => merged.finalGrades[`${sId}__${k}`] = sd.finalGrades[k]);
-             if (sd.homework) merged.homework.push(...sd.homework.map((h:any) => ({...h, class: `${sId}__${h.class}`})));
-             if (sd.messages) merged.messages.push(...sd.messages);
-             if (sd.announcements) merged.announcements.push(...sd.announcements);
-             if (sd.teacherAssignments) merged.teacherAssignments.push(...sd.teacherAssignments.map((ta:any) => ({...ta, classId: `${sId}__${ta.classId}`})));
-             if (sd.studentGroups) merged.studentGroups.push(...sd.studentGroups.map((g:any) => ({...g, classId: `${sId}__${g.classId}`})));
-        });
-
-        merged.users = merged.users.map((u: User) => {
-            if (u.role === 'student' && u.class && !u.class.includes('__')) return { ...u, class: `${u.schoolId}__${u.class}` };
-            if (u.role === 'teacher' && u.classes) return { ...u, classes: u.classes.map((c: string) => c.includes('__') ? c : `${u.schoolId}__${c}`) };
-            return u;
-        });
-        return merged as AppState;
-    }
-
-    const sData = globalState.schoolData?.[currentUser.schoolId] || {
-        classes: [], subjects: [], schedules: {}, homework: [], messages: [], announcements: [], grades: {}, finalGrades: {}, teacherAssignments: [], studentGroups: [],
-        gradingSystem: { minGrade: 2, maxGrade: 5, useWeights: true, minWeight: 1, maxWeight: 10 },
-        gradeTypes: COEFFICIENT_TYPES.map((def:any) => ({ id: H.uid('gt'), key: def.key, name: def.name, weight: def.weight, isDynamicWeight: def.key === 'nu', isNoWeight: def.key === 'n' || def.key === 'op' })),
-        subjectRequirements: {},
-        quarters: {Q1:[],Q2:[],Q3:[],Q4:[]},
-        scheduleSettings: { daysToAddBatch: 1, skippedWeekDays: [0], holidays: [], vacations: [], quarterDefinitions: { 'Q1': { start: '', end: '' }, 'Q2': { start: '', end: '' }, 'Q3': { start: '', end: '' }, 'Q4': { start: '', end: '' } } }
-    };
-
-    return {
-        ...globalState,
-        ...sData,
-        users: globalState.users.filter((u: User) => u.schoolId === currentUser.schoolId || u.role === 'creator')
-    } as AppState;
-  }, [globalState, currentUser]);
-
-  const handleUpdateState = async (newState: AppState) => {
-     if (!globalState) return;
-     const updatedGlobal = JSON.parse(JSON.stringify(globalState));
-     
-     if (!currentUser || currentUser.role === 'creator') {
-         updatedGlobal.schools = newState.schools;
-         updatedGlobal.users = newState.users.map((u: User) => {
-             if (u.role === 'student' && u.class && u.class.includes('__')) return { ...u, class: u.class.split('__').pop()! };
-             if (u.role === 'teacher' && u.classes) return { ...u, classes: u.classes.map((c: string) => c.includes('__') ? c.split('__').pop()! : c) };
-             return u;
-         });
-         updatedGlobal.userOrder = newState.userOrder;
-         updatedGlobal.settings = newState.settings;
-         setGlobalState(updatedGlobal);
-         await DB.saveState(updatedGlobal);
-         return;
-     }
-
-     const schoolId = currentUser.schoolId;
-     updatedGlobal.schools = newState.schools;
-     
-     const otherUsers = updatedGlobal.users.filter((u: User) => u.schoolId !== schoolId && u.role !== 'creator');
-     const thisUsers = newState.users.filter((u: User) => u.schoolId === schoolId || u.role === 'creator');
-     updatedGlobal.users = [...otherUsers, ...thisUsers];
-     
-     updatedGlobal.userOrder = newState.userOrder;
-     updatedGlobal.settings = newState.settings;
-
-     if (!updatedGlobal.schoolData) updatedGlobal.schoolData = {};
-     updatedGlobal.schoolData[schoolId] = {
-         classes: newState.classes,
-         subjects: newState.subjects,
-         schedules: newState.schedules,
-         homework: newState.homework,
-         messages: newState.messages,
-         announcements: newState.announcements,
-         grades: newState.grades,
-         finalGrades: newState.finalGrades,
-         teacherAssignments: newState.teacherAssignments,
-         studentGroups: newState.studentGroups,
-         gradingSystem: newState.gradingSystem,
-         gradeTypes: newState.gradeTypes,
-         subjectRequirements: newState.subjectRequirements,
-         quarters: newState.quarters,
-         scheduleSettings: newState.scheduleSettings,
-     };
-
-     setGlobalState(updatedGlobal);
-     await DB.saveState(updatedGlobal);
-  };
-
   // Initialize Data
   useEffect(() => {
     let unsubscribe: any;
     const init = async () => {
+      // Load once first to handle default setup
       let loaded = await DB.loadStateOnce();
       if (!loaded) {
         loaded = defaultState;
@@ -314,91 +204,148 @@ export default function App() {
       let isFirstSync = true;
       unsubscribe = DB.subscribeToState(async (syncedState) => {
          let loaded = syncedState ? JSON.parse(JSON.stringify(syncedState)) : null;
+         
          if (!loaded) {
              loaded = JSON.parse(JSON.stringify(defaultState));
              await DB.saveState(loaded);
          }
 
-         if (!loaded.schools) {
-           loaded.schools = [defaultSchool];
-           loaded.users.forEach((u: any) => { if (!u.schoolId) u.schoolId = 'school_1'; });
-         }
+        // Migration: Ensure schools array exists
+        if (!loaded.schools) {
 
-         // MIGRATION to schoolData
-         if (!loaded.schoolData) {
-             loaded.schoolData = {};
-             // Move all root school data into school_1
-             loaded.schoolData['school_1'] = {
-                 classes: loaded.classes || [],
-                 subjects: loaded.subjects || [],
-                 schedules: loaded.schedules || {},
-                 homework: loaded.homework || [],
-                 messages: loaded.messages || [],
-                 announcements: loaded.announcements || [],
-                 grades: loaded.grades || {},
-                 finalGrades: loaded.finalGrades || {},
-                 teacherAssignments: loaded.teacherAssignments || [],
-                 studentGroups: loaded.studentGroups || [],
-                 gradingSystem: loaded.gradingSystem || { minGrade: 2, maxGrade: 5, useWeights: true, minWeight: 1, maxWeight: 10 },
-                 gradeTypes: loaded.gradeTypes || [],
-                 subjectRequirements: loaded.subjectRequirements || {},
-                 quarters: loaded.quarters || {Q1:[],Q2:[],Q3:[],Q4:[]},
-                 scheduleSettings: loaded.scheduleSettings || { daysToAddBatch: 1, skippedWeekDays: [0], holidays: [], vacations: [], quarterDefinitions: { 'Q1': { start: '', end: '' }, 'Q2': { start: '', end: '' }, 'Q3': { start: '', end: '' }, 'Q4': { start: '', end: '' } } }
-             };
-             
-             // Clean up root
-             delete loaded.classes;
-             delete loaded.subjects;
-             delete loaded.schedules;
-             delete loaded.homework;
-             delete loaded.messages;
-             delete loaded.announcements;
-             delete loaded.grades;
-             delete loaded.finalGrades;
-             delete loaded.teacherAssignments;
-             delete loaded.studentGroups;
-             delete loaded.gradingSystem;
-             delete loaded.gradeTypes;
-             delete loaded.subjectRequirements;
-             delete loaded.quarters;
-             delete loaded.scheduleSettings;
-             
-             if (isFirstSync) DB.saveState(loaded); // Save migration
-         }
+          loaded.schools = [defaultSchool];
+          loaded.users.forEach((u: any) => { if (!u.schoolId) u.schoolId = 'school_1'; });
+        }
 
-         if (!loaded.users.find((u: any) => u.role === 'creator')) {
-             loaded.users.push({id:'u_creator', schoolId: 'global', fio: 'Создатель', role: 'creator', login: 'creator', password: 'admin'});
-         }
-         if (!loaded.userOrder) loaded.userOrder = loaded.users.map((u: any) => u.id);
+        // Migration: Clean up 'schooltr__' (or any '__' prefixes) from database state
+        let migrationNeeded = false;
+        
+        const cleanKey = (k: string) => k.includes('__') ? k.split('__').pop() || k : k;
 
-         if (loaded.settings && loaded.settings.showSeasonalAnimations === undefined) { loaded.settings.showSeasonalAnimations = true; }
-         
-         setGlobalState(loaded);
-         if (isFirstSync) {
-             isFirstSync = false;
-             const sessionStr = localStorage.getItem('eljur_session');
-             if (sessionStr) {
-                 try {
-                     const session = JSON.parse(sessionStr);
-                     if (session.expires > Date.now()) {
-                         const u = loaded.users.find((user: any) => user.id === session.userId);
-                         if (u && (!u.blockedUntil || new Date(u.blockedUntil) <= new Date())) {
-                             setCurrentUser(u);
-                             if (session.viewMode) setViewMode(session.viewMode);
-                             session.expires = Date.now() + 60 * 60 * 1000;
-                             localStorage.setItem('eljur_session', JSON.stringify(session));
-                         } else {
-                             localStorage.removeItem('eljur_session');
-                         }
-                     } else {
-                         localStorage.removeItem('eljur_session');
-                     }
-                 } catch(e) {
-                     localStorage.removeItem('eljur_session');
-                 }
-             }
-             setLoading(false);
-         }
+        if (loaded.schedules) {
+            const newSchedules: any = {};
+            Object.entries(loaded.schedules).forEach(([k, v]) => {
+                newSchedules[cleanKey(k)] = v;
+                if (k.includes('__')) migrationNeeded = true;
+            });
+            if (migrationNeeded) loaded.schedules = newSchedules;
+        }
+        if (loaded.grades) {
+            const newGrades: any = {};
+            Object.entries(loaded.grades).forEach(([k, v]) => {
+                newGrades[cleanKey(k)] = v;
+                if (k.includes('__')) migrationNeeded = true;
+            });
+            if (migrationNeeded) loaded.grades = newGrades;
+        }
+        if (loaded.finalGrades) {
+            const newFinalGrades: any = {};
+            Object.entries(loaded.finalGrades).forEach(([k, v]) => {
+                newFinalGrades[cleanKey(k)] = v;
+                if (k.includes('__')) migrationNeeded = true;
+            });
+            if (migrationNeeded) loaded.finalGrades = newFinalGrades;
+        }
+        if (loaded.homework) {
+            loaded.homework.forEach((h: any) => {
+                if (h.class && h.class.includes('__')) {
+                    h.class = cleanKey(h.class);
+                    migrationNeeded = true;
+                }
+            });
+        }
+        if (loaded.classes) {
+            loaded.classes.forEach((c: any) => {
+                if (c.class && c.class.includes('__')) {
+                    c.class = cleanKey(c.class);
+                    migrationNeeded = true;
+                }
+            });
+        }
+        loaded.users.forEach((u: any) => {
+            if (u.classes && Array.isArray(u.classes)) {
+                const cleaned = u.classes.map((c: string) => cleanKey(c));
+                if (JSON.stringify(cleaned) !== JSON.stringify(u.classes)) {
+                    u.classes = cleaned;
+                    migrationNeeded = true;
+                }
+            }
+            if (u.class && typeof u.class === 'string' && u.class.includes('__')) {
+                u.class = cleanKey(u.class);
+                migrationNeeded = true;
+            }
+        });
+        if (loaded.teacherAssignments) {
+            loaded.teacherAssignments.forEach((ta: any) => {
+                if (ta.classId && ta.classId.includes('__')) {
+                    ta.classId = cleanKey(ta.classId);
+                    migrationNeeded = true;
+                }
+            });
+        }
+        if (migrationNeeded && isFirstSync) {
+            // Save state back immediately if we did a migration on first load
+            DB.saveState(loaded);
+        }
+
+        if (!loaded.users.find((u: any) => u.role === 'creator')) {
+            loaded.users.push({id:'u_creator', schoolId: 'global', fio: 'Создатель', role: 'creator', login: 'creator', password: 'admin'});
+        }
+        if (!loaded.userOrder) loaded.userOrder = loaded.users.map((u: any) => u.id);
+
+        if (!loaded.scheduleSettings) {
+            loaded.scheduleSettings = { daysToAddBatch: 1, skippedWeekDays: [0], holidays: [], vacations: [], quarterDefinitions: { 'Q1': { start: '', end: '' }, 'Q2': { start: '', end: '' }, 'Q3': { start: '', end: '' }, 'Q4': { start: '', end: '' } } };
+        }
+        if (!loaded.gradingSystem) {
+            loaded.gradingSystem = { minGrade: 2, maxGrade: 5, useWeights: true, minWeight: 1, maxWeight: 10 };
+        }
+        if (!loaded.gradeTypes || loaded.gradeTypes.length === 0) {
+            loaded.gradeTypes = COEFFICIENT_TYPES.map(def => ({ id: H.uid('gt'), key: def.key, name: def.name, weight: def.weight, isDynamicWeight: def.key === 'nu', isNoWeight: def.key === 'n' || def.key === 'op' }));
+        }
+        if (!loaded.gradeTypes.find((gt: any) => gt.name === '...')) { loaded.gradeTypes.unshift({ id: H.uid('gt_def'), key: 'default', name: '...', weight: 1 }); }
+        if (!loaded.subjectRequirements) loaded.subjectRequirements = {};
+        if (!loaded.scheduleSettings.quarterDefinitions) { loaded.scheduleSettings.quarterDefinitions = { 'Q1': { start: '', end: '' }, 'Q2': { start: '', end: '' }, 'Q3': { start: '', end: '' }, 'Q4': { start: '', end: '' } }; }
+        if (!loaded.finalGrades) loaded.finalGrades = {};
+        if (loaded.settings && loaded.settings.showSeasonalAnimations === undefined) { loaded.settings.showSeasonalAnimations = true; }
+        if (!loaded.teacherAssignments) loaded.teacherAssignments = [];
+        if (!loaded.studentGroups) loaded.studentGroups = [];
+
+        if (loaded.scheduleSettings && loaded.scheduleSettings.holidays) {
+            const rawHolidays = loaded.scheduleSettings.holidays as any[];
+            if (rawHolidays.length > 0 && typeof rawHolidays[0] === 'string') {
+                loaded.scheduleSettings.holidays = rawHolidays.map((dateStr: string) => ({ date: dateStr, title: 'Выходной' }));
+            }
+        }
+        
+        setAppState(loaded);
+        if (isFirstSync) {
+            isFirstSync = false;
+            
+            const sessionStr = localStorage.getItem('eljur_session');
+            if (sessionStr) {
+                try {
+                    const session = JSON.parse(sessionStr);
+                    if (session.expires > Date.now()) {
+                        const u = loaded.users.find((user: any) => user.id === session.userId);
+                        if (u && (!u.blockedUntil || new Date(u.blockedUntil) <= new Date())) {
+                            setCurrentUser(u);
+                            if (session.viewMode) setViewMode(session.viewMode);
+                            
+                            session.expires = Date.now() + 60 * 60 * 1000;
+                            localStorage.setItem('eljur_session', JSON.stringify(session));
+                        } else {
+                            localStorage.removeItem('eljur_session');
+                        }
+                    } else {
+                        localStorage.removeItem('eljur_session');
+                    }
+                } catch(e) {
+                    localStorage.removeItem('eljur_session');
+                }
+            }
+            
+            setLoading(false);
+        }
       });
     };
     init();
@@ -507,6 +454,12 @@ export default function App() {
     };
     loadCustomFonts();
   }, [appState?.settings?.eljurInfo]);
+
+  const handleUpdateState = async (newState: AppState) => {
+    const updated = JSON.parse(JSON.stringify(newState));
+    setAppState(updated);
+    await DB.saveState(updated);
+  };
 
   const handleLogin = (u: User) => {
     setCurrentUser(u);

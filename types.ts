@@ -189,7 +189,7 @@ export interface AppState {
   schools: School[]; // List of schools
   users: User[];
   userOrder: string[]; // IDs for sorting
-  classes: { class: string; letter: string; homeroomTeacherId?: string }[];
+  classes: { class: string; letter: string }[];
   subjects: string[];
   // Key is class_letter e.g. "10_A". Value is object of days.
   schedules: Record<string, Record<string, ScheduleDay>>; 
@@ -236,9 +236,6 @@ export interface AppState {
   };
   // Global Schedule Config
   scheduleSettings: ScheduleSettings;
-
-  // Added for Multi-Tenant School Isolation
-  schoolData?: Record<string, any>;
 }
 
 export interface Asset {

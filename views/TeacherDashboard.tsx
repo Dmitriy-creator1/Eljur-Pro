@@ -8,10 +8,9 @@ import { HomeworkManager } from './teacher/HomeworkManager';
 import { Gradebook } from './teacher/Gradebook';
 import { StudentRating } from './shared/StudentRating';
 import { Modal, Button } from '../components/ui';
-import { HomeroomView } from './shared/HomeroomView';
 
 export default function TeacherDashboard({ state, onUpdate, user }: { state: AppState, onUpdate: (s: AppState) => void, user: User }) {
-  const [view, setView] = useState<'schedule' | 'homework' | 'grades' | 'rating' | 'messages' | 'announcements' | 'homeroom'>(() => {
+  const [view, setView] = useState<'schedule' | 'homework' | 'grades' | 'rating' | 'messages' | 'announcements'>(() => {
     return (localStorage.getItem(`eljur_tab_${user.id}`) as any) || 'schedule';
   });
   const [hasUnsavedGrades, setHasUnsavedGrades] = useState(false);
@@ -58,7 +57,6 @@ export default function TeacherDashboard({ state, onUpdate, user }: { state: App
         {view === 'rating' && <StudentRating state={state} schoolId={user.schoolId} />}
         {view === 'messages' && <Messaging state={state} onUpdate={onUpdate} currentUser={user} type="messages" />}
         {view === 'announcements' && <Messaging state={state} onUpdate={onUpdate} currentUser={user} type="announcements" />}
-        {view === 'homeroom' && <HomeroomView state={state} user={user} />}
       </div>
 
       <Modal isOpen={!!pendingView} onClose={() => setPendingView(null)} title="Внимание">
