@@ -212,20 +212,41 @@ export default function App() {
 
         // Migration: Ensure schools array exists
         if (!loaded.schools) {
-
           loaded.schools = [defaultSchool];
-          loaded.users.forEach((u: any) => { if (!u.schoolId) u.schoolId = 'school_1'; });
+          loaded.users?.forEach((u: any) => { if (!u.schoolId) u.schoolId = 'school_1'; });
         }
+
+        // Ensure core arrays/objects exist to prevent .map/.forEach crashes
+        if (!loaded.classes) loaded.classes = [];
+        if (!loaded.subjects) loaded.subjects = [];
+        if (!loaded.users) loaded.users = [];
+        if (!loaded.schedules) loaded.schedules = {};
+        if (!loaded.grades) loaded.grades = {};
+        if (!loaded.finalGrades) loaded.finalGrades = {};
+        if (!loaded.homework) loaded.homework = [];
+        if (!loaded.messages) loaded.messages = [];
+        if (!loaded.announcements) loaded.announcements = [];
+        if (!loaded.teacherAssignments) loaded.teacherAssignments = [];
 
         // Migration: Clean up 'schooltr__' (or any '__' prefixes) from database state
         let migrationNeeded = false;
         
-        const cleanKey = (k: string) => k.includes('__') ? k.split('__').pop() || k : k;
+        const cleanKey = (k: any) => {
+            if (typeof k !== 'string') return k;
+            return k.includes('__') ? k.split('__').pop() || k : k;
+        };
 
         if (loaded.schedules) {
             const newSchedules: any = {};
             Object.entries(loaded.schedules).forEach(([k, v]) => {
-                newSchedules[cleanKey(k)] = v;
+                const dayDict = v as any;
+                Object.keys(dayDict).forEach(dayId => {
+                    if (!dayDict[dayId].lessons) dayDict[dayId].lessons = [];
+                    dayDict[dayId].lessons.forEach((l: any) => {
+                        if (!l.subgroups) l.subgroups = [];
+                    });
+                });
+                newSchedules[cleanKey(k)] = dayDict;
                 if (k.includes('__')) migrationNeeded = true;
             });
             if (migrationNeeded) loaded.schedules = newSchedules;
@@ -248,7 +269,7 @@ export default function App() {
         }
         if (loaded.homework) {
             loaded.homework.forEach((h: any) => {
-                if (h.class && h.class.includes('__')) {
+                if (h.class && typeof h.class === 'string' && h.class.includes('__')) {
                     h.class = cleanKey(h.class);
                     migrationNeeded = true;
                 }
@@ -256,7 +277,7 @@ export default function App() {
         }
         if (loaded.classes) {
             loaded.classes.forEach((c: any) => {
-                if (c.class && c.class.includes('__')) {
+                if (c.class && typeof c.class === 'string' && c.class.includes('__')) {
                     c.class = cleanKey(c.class);
                     migrationNeeded = true;
                 }
@@ -277,7 +298,7 @@ export default function App() {
         });
         if (loaded.teacherAssignments) {
             loaded.teacherAssignments.forEach((ta: any) => {
-                if (ta.classId && ta.classId.includes('__')) {
+                if (ta.classId && typeof ta.classId === 'string' && ta.classId.includes('__')) {
                     ta.classId = cleanKey(ta.classId);
                     migrationNeeded = true;
                 }
@@ -295,6 +316,11 @@ export default function App() {
 
         if (!loaded.scheduleSettings) {
             loaded.scheduleSettings = { daysToAddBatch: 1, skippedWeekDays: [0], holidays: [], vacations: [], quarterDefinitions: { 'Q1': { start: '', end: '' }, 'Q2': { start: '', end: '' }, 'Q3': { start: '', end: '' }, 'Q4': { start: '', end: '' } } };
+        } else {
+            if (!loaded.scheduleSettings.holidays) loaded.scheduleSettings.holidays = [];
+            if (!loaded.scheduleSettings.vacations) loaded.scheduleSettings.vacations = [];
+            if (!loaded.scheduleSettings.skippedWeekDays) loaded.scheduleSettings.skippedWeekDays = [0];
+            if (!loaded.scheduleSettings.quarterDefinitions) loaded.scheduleSettings.quarterDefinitions = { 'Q1': { start: '', end: '' }, 'Q2': { start: '', end: '' }, 'Q3': { start: '', end: '' }, 'Q4': { start: '', end: '' } };
         }
         if (!loaded.gradingSystem) {
             loaded.gradingSystem = { minGrade: 2, maxGrade: 5, useWeights: true, minWeight: 1, maxWeight: 10 };
