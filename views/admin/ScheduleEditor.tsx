@@ -57,17 +57,21 @@ export const ScheduleEditor = ({ state, onUpdate }: { state: AppState, onUpdate:
 
   const getTeacherConflictDetails = (teacherId: string, date: string, timeRange: string, excludeClassKey: string, excludeLessonId: string): string | null => {
       if (!teacherId) return null;
+      const normalizeClassKey = (k: string) => k.includes('__') ? k.split('__').pop() || k : k;
+      const normExclude = normalizeClassKey(excludeClassKey);
+
       for (const [cKey, days] of Object.entries(state.schedules)) {
+          const normCKey = normalizeClassKey(cKey);
           const day = Object.values(days).find(d => d.date === date);
           if (day) {
               const conflict = day.lessons.find(l => {
                   if (l.timeRange !== timeRange) return false;
-                  if (cKey === excludeClassKey && l.id === excludeLessonId) return false;
+                  if (normCKey === normExclude && l.id === excludeLessonId) return false;
                   if (l.teacherId === teacherId) return true;
                   if (l.subgroups && l.subgroups.some(sg => sg.teacherId === teacherId)) return true;
                   return false;
               });
-              if (conflict) { return cKey.replace('_', ''); }
+              if (conflict) { return normCKey.replace('_', ''); }
           }
       }
       return null;

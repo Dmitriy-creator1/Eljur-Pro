@@ -216,6 +216,78 @@ export default function App() {
           loaded.schools = [defaultSchool];
           loaded.users.forEach((u: any) => { if (!u.schoolId) u.schoolId = 'school_1'; });
         }
+
+        // Migration: Clean up 'schooltr__' (or any '__' prefixes) from database state
+        let migrationNeeded = false;
+        
+        const cleanKey = (k: string) => k.includes('__') ? k.split('__').pop() || k : k;
+
+        if (loaded.schedules) {
+            const newSchedules: any = {};
+            Object.entries(loaded.schedules).forEach(([k, v]) => {
+                newSchedules[cleanKey(k)] = v;
+                if (k.includes('__')) migrationNeeded = true;
+            });
+            if (migrationNeeded) loaded.schedules = newSchedules;
+        }
+        if (loaded.grades) {
+            const newGrades: any = {};
+            Object.entries(loaded.grades).forEach(([k, v]) => {
+                newGrades[cleanKey(k)] = v;
+                if (k.includes('__')) migrationNeeded = true;
+            });
+            if (migrationNeeded) loaded.grades = newGrades;
+        }
+        if (loaded.finalGrades) {
+            const newFinalGrades: any = {};
+            Object.entries(loaded.finalGrades).forEach(([k, v]) => {
+                newFinalGrades[cleanKey(k)] = v;
+                if (k.includes('__')) migrationNeeded = true;
+            });
+            if (migrationNeeded) loaded.finalGrades = newFinalGrades;
+        }
+        if (loaded.homework) {
+            loaded.homework.forEach((h: any) => {
+                if (h.class && h.class.includes('__')) {
+                    h.class = cleanKey(h.class);
+                    migrationNeeded = true;
+                }
+            });
+        }
+        if (loaded.classes) {
+            loaded.classes.forEach((c: any) => {
+                if (c.class && c.class.includes('__')) {
+                    c.class = cleanKey(c.class);
+                    migrationNeeded = true;
+                }
+            });
+        }
+        loaded.users.forEach((u: any) => {
+            if (u.classes && Array.isArray(u.classes)) {
+                const cleaned = u.classes.map((c: string) => cleanKey(c));
+                if (JSON.stringify(cleaned) !== JSON.stringify(u.classes)) {
+                    u.classes = cleaned;
+                    migrationNeeded = true;
+                }
+            }
+            if (u.class && typeof u.class === 'string' && u.class.includes('__')) {
+                u.class = cleanKey(u.class);
+                migrationNeeded = true;
+            }
+        });
+        if (loaded.teacherAssignments) {
+            loaded.teacherAssignments.forEach((ta: any) => {
+                if (ta.classId && ta.classId.includes('__')) {
+                    ta.classId = cleanKey(ta.classId);
+                    migrationNeeded = true;
+                }
+            });
+        }
+        if (migrationNeeded && isFirstSync) {
+            // Save state back immediately if we did a migration on first load
+            DB.saveState(loaded);
+        }
+
         if (!loaded.users.find((u: any) => u.role === 'creator')) {
             loaded.users.push({id:'u_creator', schoolId: 'global', fio: 'Создатель', role: 'creator', login: 'creator', password: 'admin'});
         }

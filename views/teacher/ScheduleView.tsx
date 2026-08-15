@@ -14,21 +14,24 @@ export const ScheduleView = ({ state, user, lang }: { state: AppState, user: Use
     const myClasses = useMemo(() => {
         const assignedClasses = new Set(user.classes || []);
         Object.entries(state.schedules).forEach(([cKey, days]) => {
+            const normalizedCKey = cKey.includes('__') ? cKey.split('__').pop() || cKey : cKey;
             Object.values(days).forEach(day => {
                  day.lessons.forEach(l => {
-                     if (l.teacherId === user.id) { assignedClasses.add(cKey); }
-                     if (l.subgroups) { l.subgroups.forEach(sg => { if (sg.teacherId === user.id) { assignedClasses.add(cKey); } }); }
+                     if (l.teacherId === user.id) { assignedClasses.add(normalizedCKey); }
+                     if (l.subgroups) { l.subgroups.forEach(sg => { if (sg.teacherId === user.id) { assignedClasses.add(normalizedCKey); } }); }
                  });
             });
         });
         return state.classes.filter(c => assignedClasses.has(`${c.class}_${c.letter}`));
     }, [state.classes, user.classes, state.schedules, user.id]);
 
-    const mySchedule: Record<string, { date: string, title: string, lessons: { time: string, subject: string, class: string, groupName?: string, room: string, id: string, teacherLabel?: string }[] }> = {};
+    const mySchedule: Record<string, { date: string, title: string, lessons: { time: string, subject: string, class: string, groupName?: string, room: string, id: string, teacherLabel?: string, originalClassKey?: string }[] }> = {};
 
     myClasses.forEach(c => {
         const classKey = `${c.class}_${c.letter}`;
-        const classSchedule = state.schedules[classKey] || {};
+        // Support both exact match and prefixed match in state.schedules
+        const scheduleKey = Object.keys(state.schedules).find(k => (k.includes('__') ? k.split('__').pop() : k) === classKey) || classKey;
+        const classSchedule = state.schedules[scheduleKey] || {};
         Object.values(classSchedule).forEach(day => {
             if (!H.isDateInWeek(day.date, currentWeekStart)) return;
             day.lessons.forEach(l => {
