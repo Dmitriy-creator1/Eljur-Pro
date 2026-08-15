@@ -1,0 +1,42 @@
+     // NORMAL SCHOOL LOGIC (Same School Only)
+     if (u.schoolId !== currentUser.schoolId && (u.role as string) !== 'creator') return;
+
+     let canSee = false;
+     
+     if (actingAsDirector || isAdministrationEmployee) {
+         canSee = true; // Director/Admin mode sees all (except Creator usually handled above)
+     } else if (currentUser.role === 'teacher') {
+         if (u.role === 'director' || u.role === 'teacher') canSee = true;
+         // Can see employees who are Administration
+         if (u.role === 'employee' && u.employeePermissions?.isAdministration) canSee = true;
+         // Can see students in my classes
+         if (u.role === 'student' && currentUser.classes?.includes(`${u.class}_${u.letter}`)) canSee = true;
+     } else if (currentUser.role === 'student') {
+         if (u.role === 'director') canSee = true;
+         // Can see my teachers
+         if (u.role === 'teacher' && u.classes?.includes(`${currentUser.class}_${currentUser.letter}`)) canSee = true;
+         // Can see employees who are Administration
+         if (u.role === 'employee' && u.employeePermissions?.isAdministration) canSee = true;
+         // Can see employees who are assigned to my class
+         if (u.role === 'employee' && u.employeePermissions?.messagingScope?.includes(`${currentUser.class}_${currentUser.letter}`)) canSee = true;
+     } else if (actingAsRestrictedEmployee) {
+         // I am an employee writing as myself (non-admin)
+         if (u.role === 'director' || u.role === 'teacher') canSee = true; 
+         if (u.role === 'employee') canSee = true; // Other employees
+         
+         if (u.role === 'student') {
+             if (canMessageAll) canSee = true;
+             else if (employeeScopes.includes(`${u.class}_${u.letter}`)) canSee = true;
+         }
+     }
+
+     if (canSee) {
+        let groupName = '';
+        if ((u.role as string) === 'creator') groupName = t('developer');
+        else if (u.role === 'director') groupName = t('administration');
+        else if (u.role === 'employee') {
+            if (u.employeePermissions?.isAdministration) groupName = t('administration');
+            else groupName = t('employees');
+        }
+        else if (u.role === 'teacher') groupName = t('teachers');
+        else groupName = `${t('students')} ${u.class || ''}${u.letter || ''}`;

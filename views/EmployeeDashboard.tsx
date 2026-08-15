@@ -57,6 +57,7 @@ export default function EmployeeDashboard({ state, onUpdate, user }: Props) {
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
         {view === 'messages' && <Messaging state={state} onUpdate={onUpdate} currentUser={user} type="messages" />}
         {view === 'announcements' && <Messaging state={state} onUpdate={onUpdate} currentUser={user} type="announcements" />}
+        {view === 'homeroom' && <HomeroomView state={state} user={user} />}
         {view === 'rating' && <StudentRating state={state} schoolId={user.schoolId} />}
         {view === 'schedule' && <ScheduleEditor state={state} onUpdate={onUpdate} />}
         {view === 'users' && <UserManagement state={state} onUpdate={onUpdate} currentUser={user} isGlobal={false} />}

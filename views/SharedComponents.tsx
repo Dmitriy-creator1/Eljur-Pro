@@ -921,6 +921,10 @@ export const Messaging: React.FC<MessagingProps> = ({ state, onUpdate, currentUs
      if (u.schoolId !== currentUser.schoolId && (u.role as string) !== 'creator') return;
 
      let canSee = false;
+
+     const myClassInfo = currentUser.role === 'student' ? state.classes.find(c => c.class === currentUser.class && c.letter === currentUser.letter) : null;
+     const isMyHomeroomTeacher = myClassInfo?.homeroomTeacherId === u.id;
+     const homeroomClasses = state.classes.filter(c => c.homeroomTeacherId === u.id);
      
      if (actingAsDirector || isAdministrationEmployee) {
          canSee = true; // Director/Admin mode sees all (except Creator usually handled above)
@@ -932,6 +936,7 @@ export const Messaging: React.FC<MessagingProps> = ({ state, onUpdate, currentUs
          if (u.role === 'student' && currentUser.classes?.includes(`${u.class}_${u.letter}`)) canSee = true;
      } else if (currentUser.role === 'student') {
          if (u.role === 'director') canSee = true;
+         if (isMyHomeroomTeacher) canSee = true;
          // Can see my teachers
          if (u.role === 'teacher' && u.classes?.includes(`${currentUser.class}_${currentUser.letter}`)) canSee = true;
          // Can see employees who are Administration
@@ -952,6 +957,8 @@ export const Messaging: React.FC<MessagingProps> = ({ state, onUpdate, currentUs
      if (canSee) {
         let groupName = '';
         if ((u.role as string) === 'creator') groupName = t('developer');
+        else if (isMyHomeroomTeacher) groupName = lang === 'ru' ? 'Мой классный руководитель' : 'My Homeroom Teacher';
+        else if (homeroomClasses.length > 0) groupName = (lang === 'ru' ? 'Клас. рук. ' : 'Homeroom ') + homeroomClasses.map(c => c.class + c.letter).join(', ');
         else if (u.role === 'director') groupName = t('administration');
         else if (u.role === 'employee') {
             if (u.employeePermissions?.isAdministration) groupName = t('administration');
