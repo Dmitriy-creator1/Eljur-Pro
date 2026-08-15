@@ -128,8 +128,8 @@ export default function Login({ users, onLogin, schoolName, settings, onShowInfo
   };
 
   const fillTest = () => {
-    // Find a user matching the selected role criteria
-    const u = users.find(u => {
+    // Find a user matching the selected role criteria, preferring the most recently created
+    const u = [...users].reverse().find(u => {
         if (role === 'employee') return u.role === 'employee' || (u.role === 'teacher' && !!u.customRole);
         if (role === 'teacher') return u.role === 'teacher' && !u.customRole;
         if (role === 'student') return u.role === 'student';
