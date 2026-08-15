@@ -1,6 +1,6 @@
 
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { AppState, User, Message, Attachment } from '../types';
 import * as H from '../utils/helpers';
 import * as DB from '../services/db';
@@ -13,6 +13,177 @@ interface MessagingProps {
   currentUser: User;
   type: 'messages' | 'announcements';
 }
+
+interface MessageCardProps {
+  item: Message;
+  state: AppState;
+  currentUser: User;
+  activeTab: 'inbox' | 'sent' | 'compose';
+  isAnnounce: boolean;
+  isUnread: boolean;
+  onVisible: (id: string) => void;
+  userOptions: { value: string; label: string; group: string }[];
+  expanded: boolean;
+  onToggleExpand: () => void;
+  onStartEdit: (m: Message) => void;
+  onDelete: (id: string) => void;
+  onReply: (m: Message, senderId: string) => void;
+  lang: 'ru' | 'en';
+  t: (k: string) => string;
+}
+
+const MessageCard: React.FC<MessageCardProps> = ({
+  item,
+  state,
+  currentUser,
+  activeTab,
+  isAnnounce,
+  isUnread,
+  onVisible,
+  userOptions,
+  expanded,
+  onToggleExpand,
+  onStartEdit,
+  onDelete,
+  onReply,
+  lang,
+  t,
+}) => {
+  const cardRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isUnread || activeTab !== 'inbox' || !cardRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            onVisible(item.id);
+          }
+        });
+      },
+      {
+        root: null, // screen viewport
+        rootMargin: '0px',
+        threshold: 0.15, // triggered when 15% is visible
+      }
+    );
+
+    observer.observe(cardRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [isUnread, activeTab, item.id, onVisible]);
+
+  const sender = state.users.find((u) => u.id === item.fromId);
+  const realAuthor = item.realAuthorId ? state.users.find((u) => u.id === item.realAuthorId) : null;
+  const canReply = activeTab === 'inbox' && !isAnnounce && sender && userOptions.some((opt) => opt.value === sender.id);
+  const recipients = !isAnnounce
+    ? item.toIds.map((id) => state.users.find((u) => u.id === id)?.fio).join(', ')
+    : 'Все';
+
+  const textLines = (item.body || '').split('\n');
+  const allAttachments: { id: string; name: string }[] = [];
+  if (item.attachmentId) allAttachments.push({ id: item.attachmentId, name: item.attachmentName || '' });
+  if (item.attachments) allAttachments.push(...item.attachments);
+
+  const totalItemsCount = textLines.length + allAttachments.length;
+  const isLarge = totalItemsCount > 4;
+
+  const visibleTextLines = isLarge && !expanded ? textLines.slice(0, 4) : textLines;
+  const remainingSlotsForAttachments =
+    isLarge && !expanded ? Math.max(0, 4 - visibleTextLines.length) : allAttachments.length;
+  const visibleAttachments =
+    isLarge && !expanded ? allAttachments.slice(0, remainingSlotsForAttachments) : allAttachments;
+
+  return (
+    <div
+      ref={cardRef}
+      className={`rounded-2xl p-6 transition duration-200 border bg-white dark:bg-slate-900 shadow-sm relative ${
+        isUnread && activeTab === 'inbox'
+          ? 'border-blue-400 dark:border-blue-600 border-l-[6px] border-l-blue-600 dark:border-l-blue-500 bg-blue-50/30 dark:bg-blue-950/20 ring-1 ring-blue-500/20'
+          : 'border-slate-200 dark:border-slate-800 border-l-[6px] border-l-blue-500/70 dark:border-l-blue-600/70 hover:shadow-md'
+      }`}
+    >
+      <div className="flex justify-between items-start mb-3 gap-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <h4 className="font-bold text-lg text-slate-800 dark:text-white">{item.title}</h4>
+          {isUnread && activeTab === 'inbox' && (
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-blue-700 bg-blue-100 dark:bg-blue-900/60 dark:text-blue-300 px-2.5 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
+              {t('new_badge')}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-xs font-semibold text-slate-400 bg-slate-100 px-2 py-1 rounded dark:bg-slate-800 dark:text-slate-500">
+            {new Date(item.date).toLocaleString()}
+          </span>
+          {activeTab === 'sent' && (
+            <>
+              <button
+                onClick={() => onStartEdit(item)}
+                className="text-blue-500 p-1 hover:bg-blue-50 dark:hover:bg-blue-900/40 rounded transition"
+              >
+                <Edit size={14} />
+              </button>
+              <button
+                onClick={() => onDelete(item.id)}
+                className="text-red-500 p-1 hover:bg-red-50 dark:hover:bg-red-900/40 rounded transition"
+              >
+                <Trash2 size={14} />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="text-xs text-slate-500 mb-4 pb-4 border-b border-slate-100 flex justify-between items-center dark:border-slate-800 dark:text-slate-400">
+        <div className="flex gap-6 flex-wrap">
+          <span className="flex items-center gap-2">
+            {t('from')}: <span className="font-bold text-slate-700 dark:text-slate-300">{H.formatShortName(sender?.fio || 'Unknown')}</span>
+            {realAuthor && (
+              <span
+                className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded border border-amber-200 dark:bg-amber-900/40 dark:text-amber-300"
+                title={`${t('sent_by_emp')}: ${realAuthor.fio}`}
+              >
+                ({t('executed_by')} {H.formatShortName(realAuthor.fio)})
+              </span>
+            )}
+          </span>
+          {activeTab === 'sent' && (
+            <span>
+              {t('to')}: <span className="font-bold text-slate-700 dark:text-slate-300">{recipients}</span>
+            </span>
+          )}
+        </div>
+        {canReply && sender && (
+          <button onClick={() => onReply(item, sender.id)} className="text-blue-600 font-semibold hover:underline">
+            {t('reply')}
+          </button>
+        )}
+      </div>
+      <p className="whitespace-pre-wrap text-slate-700 leading-relaxed dark:text-slate-300">
+        {visibleTextLines.join('\n')}
+        {isLarge && !expanded && visibleTextLines.length < textLines.length && '...'}
+      </p>
+      {visibleAttachments.map((att) => (
+        <FileDisplay key={att.id} id={att.id} name={att.name} lang={lang as 'ru' | 'en'} />
+      ))}
+
+      {isLarge && (
+        <div className="mt-4">
+          <button
+            onClick={onToggleExpand}
+            className="text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline"
+          >
+            {expanded ? (lang === 'ru' ? 'Свернуть' : 'Collapse') : (lang === 'ru' ? 'Развернуть' : 'Expand')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export const Messaging: React.FC<MessagingProps> = ({ state, onUpdate, currentUser, type }) => {
   const [activeTab, setActiveTab] = useState<'inbox' | 'sent' | 'compose'>('inbox');
@@ -40,6 +211,59 @@ export const Messaging: React.FC<MessagingProps> = ({ state, onUpdate, currentUs
   const isCreator = currentUser.role === 'creator';
   const isEmployee = currentUser.role === 'employee';
   const isAnnounce = type === 'announcements';
+
+  // Unread count for current user
+  const unreadInboxCount = isAnnounce
+    ? H.getUnreadAnnouncementsCount(state, currentUser)
+    : H.getUnreadMessagesCount(state, currentUser);
+
+  // Viewport-based read detection batching
+  const pendingReadIds = useRef<Set<string>>(new Set());
+  const readTimeoutRef = useRef<any>(null);
+
+  const handleItemVisible = useCallback(
+    (id: string) => {
+      pendingReadIds.current.add(id);
+
+      if (readTimeoutRef.current) {
+        clearTimeout(readTimeoutRef.current);
+      }
+
+      readTimeoutRef.current = setTimeout(() => {
+        if (pendingReadIds.current.size === 0) return;
+
+        const idsToMark = Array.from(pendingReadIds.current);
+        pendingReadIds.current.clear();
+
+        const targetList = isAnnounce ? state.announcements : state.messages;
+        let hasChanges = false;
+
+        targetList.forEach((item) => {
+          if (idsToMark.includes(item.id)) {
+            if (!item.readBy) item.readBy = [];
+            if (!item.readBy.includes(currentUser.id)) {
+              item.readBy.push(currentUser.id);
+              item.read = true;
+              hasChanges = true;
+            }
+          }
+        });
+
+        if (hasChanges) {
+          onUpdate({ ...state });
+        }
+      }, 350);
+    },
+    [isAnnounce, state, currentUser.id, onUpdate]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (readTimeoutRef.current) {
+        clearTimeout(readTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Find director ID for "Send As" logic
   const director = state.users.find(u => u.schoolId === currentUser.schoolId && u.role === 'director');
@@ -341,9 +565,22 @@ export const Messaging: React.FC<MessagingProps> = ({ state, onUpdate, currentUs
       <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 inline-flex flex-wrap gap-1 dark:bg-slate-900 dark:border-slate-800">
         <button 
           onClick={() => { setActiveTab('inbox'); setEditId(null); }} 
-          className={`px-5 py-2 rounded-xl font-semibold text-sm transition-all duration-200 ${activeTab==='inbox' ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800'}`}
+          className={`px-5 py-2 rounded-xl font-semibold text-sm transition-all duration-200 flex items-center gap-2 ${
+            activeTab==='inbox' 
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20' 
+              : 'text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800'
+          }`}
         >
-          {t('inbox')}
+          <span>{t('inbox')}</span>
+          {unreadInboxCount > 0 && (
+            <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full leading-none transition-transform duration-200 ${
+              activeTab === 'inbox' 
+                ? 'bg-white text-blue-600 shadow-sm' 
+                : 'bg-red-500 text-white shadow-sm'
+            }`}>
+              {unreadInboxCount > 99 ? '99+' : unreadInboxCount}
+            </span>
+          )}
         </button>
         {showControls && (
         <button 
@@ -420,78 +657,38 @@ export const Messaging: React.FC<MessagingProps> = ({ state, onUpdate, currentUs
         </Card>
       ) : (
         <div className="space-y-4">
-          {items.length === 0 && <p className="text-slate-400 italic text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-200 dark:bg-slate-900 dark:border-slate-800">{t('list_empty')}</p>}
-          {items.map(item => {
-            const sender = state.users.find(u => u.id === item.fromId);
-            const realAuthor = item.realAuthorId ? state.users.find(u => u.id === item.realAuthorId) : null;
-            
-            const canReply = activeTab === 'inbox' && !isAnnounce && sender && userOptions.some(opt => opt.value === sender.id);
-
-            const recipients = !isAnnounce ? item.toIds.map(id => state.users.find(u => u.id === id)?.fio).join(', ') : 'Все';
-
-            const textLines = (item.body || '').split('\n');
-            const allAttachments: {id: string, name: string}[] = [];
-            if (item.attachmentId) allAttachments.push({ id: item.attachmentId, name: item.attachmentName || '' });
-            if (item.attachments) allAttachments.push(...item.attachments);
-
-            const totalItemsCount = textLines.length + allAttachments.length;
-            const isLarge = totalItemsCount > 4;
-            const isExpanded = expandedItems[item.id];
-
-            const visibleTextLines = (isLarge && !isExpanded) ? textLines.slice(0, 4) : textLines;
-            const remainingSlotsForAttachments = (isLarge && !isExpanded) ? Math.max(0, 4 - visibleTextLines.length) : allAttachments.length;
-            const visibleAttachments = (isLarge && !isExpanded) ? allAttachments.slice(0, remainingSlotsForAttachments) : allAttachments;
+          {items.length === 0 && (
+            <p className="text-slate-400 italic text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-200 dark:bg-slate-900 dark:border-slate-800">
+              {t('list_empty')}
+            </p>
+          )}
+          {items.map((item) => {
+            const isUnread =
+              activeTab === 'inbox' &&
+              (isAnnounce
+                ? H.isAnnouncementUnreadByUser(item, currentUser, state.users)
+                : H.isMessageUnreadByUser(item, currentUser.id));
 
             return (
-              <Card key={item.id} className="p-6 hover:shadow-md transition duration-200 border-l-[6px] border-l-blue-500 dark:border-l-blue-600">
-                <div className="flex justify-between items-start mb-3">
-                   <h4 className="font-bold text-lg text-slate-800 dark:text-white">{item.title}</h4>
-                   <div className="flex items-center gap-2">
-                       <span className="text-xs font-semibold text-slate-400 bg-slate-100 px-2 py-1 rounded dark:bg-slate-800 dark:text-slate-500">{new Date(item.date).toLocaleString()}</span>
-                       {activeTab === 'sent' && (
-                         <>
-                           <button onClick={() => startEdit(item)} className="text-blue-500"><Edit size={14}/></button>
-                           <button onClick={() => deleteItem(item.id)} className="text-red-500"><Trash2 size={14}/></button>
-                         </>
-                       )}
-                   </div>
-                </div>
-                <div className="text-xs text-slate-500 mb-4 pb-4 border-b border-slate-100 flex justify-between items-center dark:border-slate-800 dark:text-slate-400">
-                  <div className="flex gap-6">
-                    <span className="flex items-center gap-2">
-                        {t('from')}: <span className="font-bold text-slate-700 dark:text-slate-300">{H.formatShortName(sender?.fio || 'Unknown')}</span>
-                        {realAuthor && (
-                            <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded border border-amber-200 dark:bg-amber-900/40 dark:text-amber-300" title={`${t('sent_by_emp')}: ${realAuthor.fio}`}>
-                               ({t('executed_by')} {H.formatShortName(realAuthor.fio)})
-                            </span>
-                        )}
-                    </span>
-                    {activeTab === 'sent' && <span>{t('to')}: <span className="font-bold text-slate-700 dark:text-slate-300">{recipients}</span></span>}
-                  </div>
-                  {canReply && sender && (
-                     <button onClick={() => handleReply(item, sender.id)} className="text-blue-600 font-semibold hover:underline">
-                         {t('reply')}
-                     </button>
-                  )}
-                </div>
-                <p className="whitespace-pre-wrap text-slate-700 leading-relaxed dark:text-slate-300">
-                  {visibleTextLines.join('\n')}
-                  {isLarge && !isExpanded && visibleTextLines.length < textLines.length && '...'}
-                </p>
-                {visibleAttachments.map(att => <FileDisplay key={att.id} id={att.id} name={att.name} lang={lang as 'ru'|'en'} />)}
-                
-                {isLarge && (
-                  <div className="mt-4">
-                    <button 
-                      onClick={() => toggleExpand(item.id)}
-                      className="text-sm font-semibold text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline"
-                    >
-                      {isExpanded ? (lang === 'ru' ? 'Свернуть' : 'Collapse') : (lang === 'ru' ? 'Развернуть' : 'Expand')}
-                    </button>
-                  </div>
-                )}
-              </Card>
-            )
+              <MessageCard
+                key={item.id}
+                item={item}
+                state={state}
+                currentUser={currentUser}
+                activeTab={activeTab}
+                isAnnounce={isAnnounce}
+                isUnread={isUnread}
+                onVisible={handleItemVisible}
+                userOptions={userOptions}
+                expanded={!!expandedItems[item.id]}
+                onToggleExpand={() => toggleExpand(item.id)}
+                onStartEdit={startEdit}
+                onDelete={deleteItem}
+                onReply={handleReply}
+                lang={lang as 'ru' | 'en'}
+                t={t}
+              />
+            );
           })}
         </div>
       )}

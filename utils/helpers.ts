@@ -1,5 +1,5 @@
 
-import { Lesson, ScheduleSettings } from '../types';
+import { Lesson, ScheduleSettings, Message, Announcement, AppState, User } from '../types';
 
 // --- TRANSLATION DICTIONARY ---
 export const DICT: Record<string, Record<string, string>> = {
@@ -15,6 +15,10 @@ export const DICT: Record<string, Record<string, string>> = {
     rating: 'Рейтинг',
     settings: 'Настройки',
     exit: 'Выйти',
+    confirm_exit_title: 'Выход из системы',
+    confirm_exit_msg: 'Вы действительно хотите выйти из своей учетной записи?',
+    confirm_exit_btn: 'Выйти',
+    new_badge: 'Новое',
     login_title: 'Вход в систему',
     role: 'Роль',
     login: 'Логин',
@@ -511,6 +515,10 @@ export const DICT: Record<string, Record<string, string>> = {
     rating: 'Rating',
     settings: 'Settings',
     exit: 'Logout',
+    confirm_exit_title: 'Confirm Logout',
+    confirm_exit_msg: 'Are you sure you want to log out of your account?',
+    confirm_exit_btn: 'Log out',
+    new_badge: 'New',
     login_title: 'System Login',
     role: 'Role',
     login: 'Login',
@@ -1234,3 +1242,41 @@ export const getQuarterFromDate = (dateStr: string): string => {
     if (m >= 4 && m <= 6) return 'Q4';
     return 'Q1';
 };
+
+// --- UNREAD MESSAGES & ANNOUNCEMENTS HELPERS ---
+
+export const isMessageUnreadByUser = (m: Message, userId: string): boolean => {
+    if (!m) return false;
+    // Messages created by current user are not unread for them
+    if (m.fromId === userId || m.realAuthorId === userId) return false;
+    // Must be addressed to user
+    if (!m.toIds || !m.toIds.includes(userId)) return false;
+    // Check if user has read it
+    if (m.readBy && m.readBy.includes(userId)) return false;
+    return true;
+};
+
+export const isAnnouncementUnreadByUser = (a: Announcement, user: User, allUsers: User[]): boolean => {
+    if (!a || !user) return false;
+    // Announcements created by current user are not unread for them
+    if (a.fromId === user.id || a.realAuthorId === user.id) return false;
+    const sender = allUsers.find(u => u.id === a.fromId);
+    if (!sender) return false;
+    // Global announcements from creator or school-level announcements
+    if ((sender.role as string) !== 'creator' && sender.schoolId !== user.schoolId) return false;
+    // Check if user has read it
+    if (a.readBy && a.readBy.includes(user.id)) return false;
+    return true;
+};
+
+export const getUnreadMessagesCount = (state: AppState, user: User): number => {
+    if (!state || !state.messages || !Array.isArray(state.messages) || !user) return 0;
+    return state.messages.filter(m => isMessageUnreadByUser(m, user.id)).length;
+};
+
+export const getUnreadAnnouncementsCount = (state: AppState, user: User): number => {
+    if (!state || !state.announcements || !Array.isArray(state.announcements) || !user) return 0;
+    const users = state.users || [];
+    return state.announcements.filter(a => isAnnouncementUnreadByUser(a, user, users)).length;
+};
+

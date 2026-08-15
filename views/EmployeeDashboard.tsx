@@ -24,6 +24,9 @@ export default function EmployeeDashboard({ state, onUpdate, user }: Props) {
   const lang = state.settings.language || 'ru';
   const t = (k: string) => H.t(k, lang);
 
+  const unreadMessagesCount = H.getUnreadMessagesCount(state, user);
+  const unreadAnnouncementsCount = H.getUnreadAnnouncementsCount(state, user);
+
   useEffect(() => {
      if (!allowedTabs.includes(view)) {
          setView(allowedTabs[0] || '');
@@ -41,8 +44,8 @@ export default function EmployeeDashboard({ state, onUpdate, user }: Props) {
   return (
     <div className="space-y-8">
       <div className="bg-white p-1.5 rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 flex overflow-x-auto hide-scrollbar gap-1 no-print w-full dark:bg-slate-900 dark:border-slate-800 pb-2 sm:pb-1.5">
-        {allowedTabs.includes('messages') && <TabButton active={view === 'messages'} onClick={() => setView('messages')} label={t('messages')} />}
-        {allowedTabs.includes('announcements') && <TabButton active={view === 'announcements'} onClick={() => setView('announcements')} label={t('announcements')} />}
+        {allowedTabs.includes('messages') && <TabButton active={view === 'messages'} onClick={() => setView('messages')} label={t('messages')} badgeCount={unreadMessagesCount} />}
+        {allowedTabs.includes('announcements') && <TabButton active={view === 'announcements'} onClick={() => setView('announcements')} label={t('announcements')} badgeCount={unreadAnnouncementsCount} />}
         {allowedTabs.includes('rating') && <TabButton active={view === 'rating'} onClick={() => setView('rating')} label={t('rating')} />}
         {allowedTabs.includes('schedule') && <TabButton active={view === 'schedule'} onClick={() => setView('schedule')} label={t('schedule')} />}
         {allowedTabs.includes('users') && <TabButton active={view === 'users'} onClick={() => setView('users')} label={t('users')} />}
@@ -65,15 +68,24 @@ export default function EmployeeDashboard({ state, onUpdate, user }: Props) {
   );
 }
 
-const TabButton = ({ active, onClick, label }: any) => (
+const TabButton = ({ active, onClick, label, badgeCount }: { active: boolean; onClick: () => void; label: string; badgeCount?: number }) => (
   <button
     onClick={onClick}
-    className={`flex-none px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
+    className={`flex-none px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 whitespace-nowrap flex items-center justify-center gap-2 ${
       active 
         ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 dark:bg-blue-600' 
         : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200'
     }`}
   >
-    {label}
+    <span>{label}</span>
+    {typeof badgeCount === 'number' && badgeCount > 0 && (
+      <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full leading-none transition-transform duration-200 ${
+        active 
+          ? 'bg-white text-blue-600 shadow-sm' 
+          : 'bg-red-500 text-white shadow-sm'
+      }`}>
+        {badgeCount > 99 ? '99+' : badgeCount}
+      </span>
+    )}
   </button>
 );

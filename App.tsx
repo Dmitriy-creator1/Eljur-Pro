@@ -11,7 +11,7 @@ import EmployeeDashboard from './views/EmployeeDashboard';
 import Settings from './views/Settings';
 import { Settings as SettingsIcon, LogOut } from 'lucide-react';
 import * as H from './utils/helpers';
-import { Modal } from './components/ui';
+import { Modal, Button } from './components/ui';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import DOMPurify from 'dompurify';
@@ -187,6 +187,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'dashboard' | 'settings'>('dashboard');
   const [showEljurInfo, setShowEljurInfo] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [customFonts, setCustomFonts] = useState<{name: string, displayName: string}[]>([]);
 
   // Initialize Data
@@ -570,7 +571,11 @@ export default function App() {
                     <SettingsIcon size={20} />
                   </button>
 
-                  <button onClick={handleLogout} className="flex items-center gap-2 text-sm text-red-600 hover:text-red-700 font-semibold bg-red-50 hover:bg-red-100 px-4 py-2.5 rounded-xl transition-colors dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40">
+                  <button 
+                    onClick={() => setShowLogoutConfirm(true)} 
+                    className="flex items-center gap-2 text-sm text-red-600 hover:text-red-700 font-semibold bg-red-50 hover:bg-red-100 px-4 py-2.5 rounded-xl transition-colors dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40"
+                    title={t('exit')}
+                  >
                     <LogOut size={16} />
                     <span className="hidden sm:inline">{t('exit')}</span>
                   </button>
@@ -598,7 +603,7 @@ export default function App() {
                   <StudentDashboard state={appState} onUpdate={handleUpdateState} user={currentUser} />
                 )}
                 {currentUser.role === 'employee' && (
-                   <EmployeeDashboard state={appState} onUpdate={handleUpdateState} user={currentUser} />
+                  <EmployeeDashboard state={appState} onUpdate={handleUpdateState} user={currentUser} />
                 )}
               </>
             )}
@@ -613,6 +618,34 @@ export default function App() {
 
       <Modal isOpen={showEljurInfo} onClose={() => setShowEljurInfo(false)} title={lang === 'ru' ? 'Информация об ЭлЖуре' : 'Eljur Info'} maxWidth="max-w-5xl w-full">
         {renderEljurInfo()}
+      </Modal>
+
+      <Modal 
+        isOpen={showLogoutConfirm} 
+        onClose={() => setShowLogoutConfirm(false)} 
+        title={t('confirm_exit_title')}
+      >
+        <div className="space-y-4 p-1">
+          <p className="text-slate-700 dark:text-slate-300 text-sm sm:text-base leading-relaxed">
+            {t('confirm_exit_msg')}
+          </p>
+          <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+            <Button variant="secondary" onClick={() => setShowLogoutConfirm(false)}>
+              {t('cancel')}
+            </Button>
+            <Button 
+              variant="primary" 
+              onClick={() => {
+                setShowLogoutConfirm(false);
+                handleLogout();
+              }} 
+              className="bg-red-600 hover:bg-red-700 text-white border-none shadow-md shadow-red-500/20"
+            >
+              <LogOut size={16} className="mr-1.5" />
+              {t('confirm_exit_btn')}
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

@@ -31,6 +31,8 @@ export default function CreatorDashboard({ state, onUpdate, user }: Props) {
   const lang = state.settings.language || 'ru';
   const t = (k: string) => H.t(k, lang);
 
+  const unreadMessagesCount = H.getUnreadMessagesCount(state, user);
+
   const handleTabClick = (newView: typeof view) => {
     if (view === 'eljurInfo' && hasUnsavedChanges && newView !== 'eljurInfo') {
       setPendingView(newView);
@@ -53,7 +55,7 @@ export default function CreatorDashboard({ state, onUpdate, user }: Props) {
         <TabButton active={view === 'schools'} onClick={() => handleTabClick('schools')} label={t('manage_schools')} />
         <TabButton active={view === 'users'} onClick={() => handleTabClick('users')} label={t('global_users')} />
         <TabButton active={view === 'rating'} onClick={() => handleTabClick('rating')} label={t('rating')} />
-        <TabButton active={view === 'messages'} onClick={() => handleTabClick('messages')} label={t('messages')} />
+        <TabButton active={view === 'messages'} onClick={() => handleTabClick('messages')} label={t('messages')} badgeCount={unreadMessagesCount} />
         <TabButton active={view === 'eljurInfo'} onClick={() => handleTabClick('eljurInfo')} label={lang === 'ru' ? 'Инфо ЭлЖур' : 'Eljur Info'} />
       </div>
 
@@ -89,15 +91,24 @@ export default function CreatorDashboard({ state, onUpdate, user }: Props) {
   );
 }
 
-const TabButton = ({ active, onClick, label }: any) => (
+const TabButton = ({ active, onClick, label, badgeCount }: { active: boolean; onClick: () => void; label: string; badgeCount?: number }) => (
   <button
     onClick={onClick}
-    className={`flex-none px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
+    className={`flex-none px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 whitespace-nowrap flex items-center justify-center gap-2 ${
       active 
         ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 dark:bg-blue-600' 
         : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200'
     }`}
   >
-    {label}
+    <span>{label}</span>
+    {typeof badgeCount === 'number' && badgeCount > 0 && (
+      <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full leading-none transition-transform duration-200 ${
+        active 
+          ? 'bg-white text-blue-600 shadow-sm' 
+          : 'bg-red-500 text-white shadow-sm'
+      }`}>
+        {badgeCount > 99 ? '99+' : badgeCount}
+      </span>
+    )}
   </button>
 );

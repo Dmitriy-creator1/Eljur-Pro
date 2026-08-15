@@ -125,6 +125,7 @@ export interface Message {
   attachments?: Attachment[]; // Multiple files
   date: string;
   read?: boolean;
+  readBy?: string[]; // List of user IDs who have read/viewed this message in viewport
 
   // Legacy
   attachmentId?: string;
