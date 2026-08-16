@@ -7,25 +7,29 @@ import { Button, Select, Card, MultiFileUploader, FileDisplay } from '../../comp
 import { Edit, Trash2 } from 'lucide-react';
 
 export const HomeworkManager = ({ state, onUpdate, user, lang }: { state: AppState, onUpdate: (s: AppState) => void, user: User, lang: 'ru' | 'en' }) => {
+   const schoolClasses = H.getSchoolClasses(state, user.schoolId);
+
    const myClasses = useMemo(() => {
         const assignedClasses = new Set(user.classes || []);
-        Object.entries(state.schedules).forEach(([cKey, days]) => {
-            Object.values(days).forEach((day: any) => {
+        schoolClasses.forEach((c: any) => {
+            const classKey = `${c.class}_${c.letter}`;
+            const schedule = H.getSchoolClassSchedule(state, user.schoolId, classKey);
+            Object.values(schedule).forEach((day: any) => {
                  day.lessons.forEach((l: any) => {
-                     if (l.teacherId === user.id && l.canGrade) { assignedClasses.add(cKey); }
-                     if (l.subgroups) { l.subgroups.forEach((sg: any) => { if (sg.teacherId === user.id && sg.canGrade) { assignedClasses.add(cKey); } }); }
+                     if (l.teacherId === user.id && l.canGrade) { assignedClasses.add(classKey); }
+                     if (l.subgroups) { l.subgroups.forEach((sg: any) => { if (sg.teacherId === user.id && sg.canGrade) { assignedClasses.add(classKey); } }); }
                  });
             });
         });
-        return state.classes.filter((c: any) => assignedClasses.has(`${c.class}_${c.letter}`));
-   }, [state.classes, user.classes, state.schedules, user.id]);
+        return schoolClasses.filter((c: any) => assignedClasses.has(`${c.class}_${c.letter}`));
+   }, [schoolClasses, user.classes, state, user.id, user.schoolId]);
 
    const [cls, setCls] = useState(myClasses[0] ? `${myClasses[0].class}_${myClasses[0].letter}` : '');
    
    const availableSubjects = useMemo(() => {
         if (!cls) return [];
         const assigned = state.teacherAssignments.filter((a: any) => a.teacherId === user.id && a.classId === cls).map((a: any) => a.subject);
-        const schedule = state.schedules[cls];
+        const schedule = H.getSchoolClassSchedule(state, user.schoolId, cls);
         if (schedule) {
             Object.values(schedule).forEach((d: any) => {
                 d.lessons.forEach((l: any) => {
@@ -36,7 +40,7 @@ export const HomeworkManager = ({ state, onUpdate, user, lang }: { state: AppSta
         }
         if (assigned.length === 0 && user.subjects) { return user.subjects; }
         return Array.from(new Set(assigned));
-   }, [cls, state.teacherAssignments, user.id, user.subjects, state.schedules]);
+   }, [cls, state.teacherAssignments, user.id, user.subjects, state, user.schoolId]);
 
    const [subj, setSubj] = useState('');
    useEffect(() => { if (availableSubjects.length > 0 && !availableSubjects.includes(subj)) { setSubj(availableSubjects[0]); } }, [availableSubjects, subj]);
@@ -51,7 +55,7 @@ export const HomeworkManager = ({ state, onUpdate, user, lang }: { state: AppSta
 
    const validHWDates = useMemo(() => {
        if (!cls || !subj) return [];
-       const schedule = state.schedules[cls];
+       const schedule = H.getSchoolClassSchedule(state, user.schoolId, cls);
        if (!schedule) return [];
        const today = new Date(Date.now() + (state.settings.systemTimeOffset || 0));
        today.setHours(0,0,0,0);
@@ -61,11 +65,11 @@ export const HomeworkManager = ({ state, onUpdate, user, lang }: { state: AppSta
            if (hasSubject) { const dayDate = new Date(d.date); if (dayDate >= today) { dates.push(d.date); } }
        });
        return dates.sort();
-   }, [cls, subj, state.schedules, state.settings.systemTimeOffset]);
+   }, [cls, subj, state, user.schoolId, state.settings.systemTimeOffset]);
 
    const getLessonCount = () => {
        if (!cls || !date || !subj) return 0;
-       const schedule = state.schedules[cls];
+       const schedule = H.getSchoolClassSchedule(state, user.schoolId, cls);
        if (!schedule) return 0;
        const days = Object.values(schedule) as ScheduleDay[];
        const day = days.find(d => d.date === date);

@@ -5,12 +5,13 @@ import * as H from '../../utils/helpers';
 import { Button, Input, Select, Card } from '../../components/ui';
 import { Layers, ArrowLeft, ArrowRight } from 'lucide-react';
 
-export const GroupManager = ({ state, onUpdate }: { state: AppState, onUpdate: (s: AppState) => void }) => {
-    const [selectedClass, setSelectedClass] = useState(state.classes[0] ? `${state.classes[0].class}_${state.classes[0].letter}` : '');
+export const GroupManager = ({ state, onUpdate, user }: { state: AppState, onUpdate: (s: AppState) => void, user: import("../../types").User }) => {
+    const schoolClasses = H.getSchoolClasses(state, user.schoolId);
+    const [selectedClass, setSelectedClass] = useState(schoolClasses[0] ? `${schoolClasses[0].class}_${schoolClasses[0].letter}` : '');
     const [groupCount, setGroupCount] = useState(2);
     const lang = state.settings.language || 'ru';
     const t = (k: string) => H.t(k, lang);
-    const classStudents = state.users.filter(u => u.role === 'student' && `${u.class}_${u.letter}` === selectedClass).sort((a,b) => a.fio.localeCompare(b.fio));
+    const classStudents = state.users.filter(u => u.schoolId === user.schoolId && u.role === 'student' && `${u.class}_${u.letter}` === selectedClass).sort((a,b) => a.fio.localeCompare(b.fio));
     const existingGroups = state.studentGroups.filter(g => g.classId === selectedClass);
     const generateGroups = () => {
         if (!confirm('Существующие группы для этого класса будут удалены. Создать новые?')) return;
@@ -50,7 +51,7 @@ export const GroupManager = ({ state, onUpdate }: { state: AppState, onUpdate: (
                 <div>
                     <label className="block text-sm font-bold text-slate-600 mb-2 dark:text-slate-300">{t('class')}</label>
                     <Select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="w-32">
-                        {state.classes.map(c => <option key={`${c.class}_${c.letter}`} value={`${c.class}_${c.letter}`}>{c.class}{c.letter}</option>)}
+                        {schoolClasses.map(c => <option key={`${c.class}_${c.letter}`} value={`${c.class}_${c.letter}`}>{c.class}{c.letter}</option>)}
                     </Select>
                 </div>
                 <div>

@@ -204,6 +204,7 @@ export default function App() {
       let isFirstSync = true;
       unsubscribe = DB.subscribeToState(async (syncedState) => {
          let loaded = syncedState ? JSON.parse(JSON.stringify(syncedState)) : null;
+         let migrationNeeded = false;
          
          if (!loaded) {
              loaded = JSON.parse(JSON.stringify(defaultState));

@@ -5,8 +5,9 @@ import * as H from '../../utils/helpers';
 import { Button, Input, Select, Modal } from '../../components/ui';
 import { ChevronLeft, ChevronRight, Calendar, Settings, Copy, BookOpen, Printer, Lock, Trash2, MoreVertical, X as XIcon, Type, AlertCircle, CalendarRange } from 'lucide-react';
 
-export const ScheduleEditor = ({ state, onUpdate }: { state: AppState, onUpdate: (s: AppState) => void }) => {
-  const [activeClass, setActiveClass] = useState(state.classes[0] ? `${state.classes[0].class}_${state.classes[0].letter}` : '');
+export const ScheduleEditor = ({ state, onUpdate, user }: { state: AppState, onUpdate: (s: AppState) => void, user: import("../../types").User }) => {
+  const schoolClasses = H.getSchoolClasses(state, user.schoolId);
+  const [activeClass, setActiveClass] = useState(schoolClasses[0] ? `${schoolClasses[0].class}_${schoolClasses[0].letter}` : '');
   const [newSubj, setNewSubj] = useState('');
   const [showSubjModal, setShowSubjModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);

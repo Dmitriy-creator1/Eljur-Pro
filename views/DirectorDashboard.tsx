@@ -45,11 +45,11 @@ export default function DirectorDashboard({ state, onUpdate, user }: Props) {
 
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
         {view === 'users' && <UserManagement state={state} onUpdate={onUpdate} currentUser={user} />}
-        {view === 'load' && <TeacherLoadManager state={state} onUpdate={onUpdate} />}
-        {view === 'groups' && <GroupManager state={state} onUpdate={onUpdate} />}
-        {view === 'schedule' && <ScheduleEditor state={state} onUpdate={onUpdate} />}
+        {view === 'load' && <TeacherLoadManager state={state} onUpdate={onUpdate} user={user} />}
+        {view === 'groups' && <GroupManager state={state} onUpdate={onUpdate} user={user} />}
+        {view === 'schedule' && <ScheduleEditor state={state} onUpdate={onUpdate} user={user} />}
         {view === 'rating' && <StudentRating state={state} schoolId={user.schoolId} />}
-        {view === 'grading' && <GradingSetup state={state} onUpdate={onUpdate} />}
+        {view === 'grading' && <GradingSetup state={state} onUpdate={onUpdate} user={user} />}
         {view === 'messages' && <Messaging state={state} onUpdate={onUpdate} currentUser={user} type="messages" />}
         {view === 'announcements' && <Messaging state={state} onUpdate={onUpdate} currentUser={user} type="announcements" />}
       </div>

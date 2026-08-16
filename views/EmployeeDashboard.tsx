@@ -58,11 +58,11 @@ export default function EmployeeDashboard({ state, onUpdate, user }: Props) {
         {view === 'messages' && <Messaging state={state} onUpdate={onUpdate} currentUser={user} type="messages" />}
         {view === 'announcements' && <Messaging state={state} onUpdate={onUpdate} currentUser={user} type="announcements" />}
         {view === 'rating' && <StudentRating state={state} schoolId={user.schoolId} />}
-        {view === 'schedule' && <ScheduleEditor state={state} onUpdate={onUpdate} />}
+        {view === 'schedule' && <ScheduleEditor state={state} onUpdate={onUpdate} user={user} />}
         {view === 'users' && <UserManagement state={state} onUpdate={onUpdate} currentUser={user} isGlobal={false} />}
-        {view === 'load' && <TeacherLoadManager state={state} onUpdate={onUpdate} />}
-        {view === 'groups' && <GroupManager state={state} onUpdate={onUpdate} />}
-        {view === 'grading' && <GradingSetup state={state} onUpdate={onUpdate} />}
+        {view === 'load' && <TeacherLoadManager state={state} onUpdate={onUpdate} user={user} />}
+        {view === 'groups' && <GroupManager state={state} onUpdate={onUpdate} user={user} />}
+        {view === 'grading' && <GradingSetup state={state} onUpdate={onUpdate} user={user} />}
       </div>
     </div>
   );
