@@ -7,13 +7,15 @@ import { ChevronLeft, ChevronRight, Calendar, Printer } from 'lucide-react';
 
 export const StudentJournal = ({ state, user }: { state: AppState, user: User }) => {
     const classKey = `${user.class}_${user.letter}`;
-    const schedule = state.schedules[classKey] || {};
+    const schedule = H.getSchoolClassSchedule(state, user.schoolId, classKey);
     const lang = state.settings.language || 'ru';
     const t = (k: string) => H.t(k, lang);
-    const minGrade = state.gradingSystem?.minGrade ?? 2;
-    const maxGrade = state.gradingSystem?.maxGrade ?? 5;
-    const useWeights = state.gradingSystem?.useWeights ?? true;
-    const gradeTypes = state.gradeTypes || [];
+    const gradingSystem = H.getSchoolGradingSystem(state, user.schoolId);
+    const minGrade = gradingSystem?.minGrade ?? 2;
+    const maxGrade = gradingSystem?.maxGrade ?? 5;
+    const useWeights = gradingSystem?.useWeights ?? true;
+    const gradeTypes = H.getSchoolGradeTypes(state, user.schoolId);
+    const scheduleSettings = H.getSchoolScheduleSettings(state, user.schoolId);
     
     const systemNow = new Date(Date.now() + (state.settings.systemTimeOffset || 0));
     const [journalWeekStart, setJournalWeekStart] = useState<Date>(H.getStartOfWeek(systemNow));
@@ -148,8 +150,9 @@ export const StudentJournal = ({ state, user }: { state: AppState, user: User })
                                            if (!subjectCounts[subject]) subjectCounts[subject] = 0;
                                            const subjIndex = subjectCounts[subject]++;
                                            
-                                           const hwList = state.homework.filter(h => { if (h.class !== user.class || h.letter !== user.letter) return false; if (h.subject !== subject) return false; if (h.date !== day.date) return false; if ((h.lessonIndex || 0) > 0 && h.lessonIndex !== subjIndex) return false; return true; });
-                                           const grades = (state.grades[classKey]?.[subject] || []).filter(g => {
+                                           const hwList = H.getSchoolHomework(state, user.schoolId, classKey).filter(h => { if (h.subject !== subject) return false; if (h.date !== day.date) return false; if ((h.lessonIndex || 0) > 0 && h.lessonIndex !== subjIndex) return false; return true; });
+                                           const allClassGrades = H.getSchoolClassGrades(state, user.schoolId, classKey);
+                                           const grades = (allClassGrades[subject] || []).filter(g => {
                                                if (g.studentId !== user.id || g.date !== day.date) return false;
                                                const isLast = subjIndex === (totalSubjectOccurrences[subject] - 1);
                                                const gIndex = g.lessonIndex || 0;

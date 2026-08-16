@@ -1,5 +1,5 @@
 
-import { Lesson, ScheduleSettings, Message, Announcement, AppState, User } from '../types';
+import { Lesson, ScheduleSettings, Message, Announcement, AppState, User, School, GradingSystemSettings, GradeType, SubjectRequirement, Grade, FinalGradeEntry, ScheduleDay, TeacherAssignment, StudentGroup, Homework, COEFFICIENT_TYPES } from '../types';
 
 // --- TRANSLATION DICTIONARY ---
 export const DICT: Record<string, Record<string, string>> = {
@@ -36,8 +36,10 @@ export const DICT: Record<string, Record<string, string>> = {
     teacher: 'Учитель',
     student: 'Ученик',
     employee: 'Сотрудник',
-    creator: 'СОЗДАТЕЛЬ',
+    creator: 'Создатель',
     developer: 'Разработчик',
+    creator_panel: 'Панель Создателя',
+    info_eljur: 'Инфо ЭлЖур',
     current_week: 'Текущая неделя',
     print: 'Печать',
     add: 'Добавить',
@@ -467,6 +469,40 @@ export const DICT: Record<string, Record<string, string>> = {
     min_grades: 'Мин. оценок',
     auto: 'Авто',
     manual: 'Вручную',
+    not_selected: 'Не выбрано',
+    search_fio: 'Поиск по ФИО...',
+    sort_fio: 'Сорт: ФИО',
+    no_classes: 'Нет классов',
+    fio: 'ФИО',
+    choose_class: 'Выберите класс',
+    select_classes_placeholder: 'Выберите классы...',
+    select_classes: 'Выберите хотя бы один класс',
+    block_user_title: 'Блокировка пользователя',
+    select_block_duration: 'Выберите длительность блокировки.',
+    for_1_hour: 'На 1 час',
+    for_24_hours: 'На 24 часа',
+    login_taken: 'Логин уже занят',
+    password_used: 'Пароль уже используется',
+    can_write_to: 'Может писать в',
+    access_tabs: 'Доступ к вкладкам',
+    special_rights: 'Особые права',
+    write_as_director: 'Писать от имени директора',
+    add_to_admin: 'Включить в состав администрации',
+    grading_setup: 'Настройка оценок',
+    blocked: 'Заблокирован',
+    account_blocked: 'Аккаунт заблокирован до',
+    reset_data: 'Сбросить данные',
+    reset_data_title: 'Сброс данных',
+    reset_data_desc: 'Внимание! Это действие удалит все данные (оценки, расписание, пользователей), кроме тестовых данных по умолчанию.',
+    reset_data_confirm: 'Вы уверены, что хотите сбросить все данные до значений по умолчанию? Это действие необратимо.',
+    data_reset_success: 'Данные успешно сброшены.',
+    stay: 'Остаться',
+    leave_tab: 'Покинуть вкладку',
+    unsaved_canvas_changes: 'У вас есть несохраненные изменения на холсте. Вы уверены, что хотите уйти? Все несохраненные данные будут потеряны.',
+    unsaved_changes: 'Несохраненные изменения',
+    school_users: 'Пользователи школы',
+    global_list: 'Глобальный список',
+    director_fio: 'ФИО Директора',
   },
   en: {
     reply: 'Reply',
@@ -501,8 +537,10 @@ export const DICT: Record<string, Record<string, string>> = {
     teacher: 'Teacher',
     student: 'Student',
     employee: 'Employee',
-    creator: 'CREATOR',
+    creator: 'Creator',
     developer: 'Developer',
+    creator_panel: 'Creator Panel',
+    info_eljur: 'Eljur Info',
     current_week: 'Current Week',
     print: 'Print',
     add: 'Add',
@@ -931,6 +969,40 @@ export const DICT: Record<string, Record<string, string>> = {
     min_grades: 'Min. Grades',
     auto: 'Auto',
     manual: 'Manual',
+    not_selected: 'Not selected',
+    search_fio: 'Search by full name...',
+    sort_fio: 'Sort: Full Name',
+    no_classes: 'No classes',
+    fio: 'Full Name',
+    choose_class: 'Choose class',
+    select_classes_placeholder: 'Select classes...',
+    select_classes: 'Select at least one class',
+    block_user_title: 'Block User',
+    select_block_duration: 'Select block duration.',
+    for_1_hour: 'For 1 hour',
+    for_24_hours: 'For 24 hours',
+    login_taken: 'Login already taken',
+    password_used: 'Password already used',
+    can_write_to: 'Can write to',
+    access_tabs: 'Access to tabs',
+    special_rights: 'Special rights',
+    write_as_director: 'Write as director',
+    add_to_admin: 'Add to administration',
+    grading_setup: 'Grading Setup',
+    blocked: 'Blocked',
+    account_blocked: 'Account blocked until',
+    reset_data: 'Reset Data',
+    reset_data_title: 'Reset Data',
+    reset_data_desc: 'Warning! This action will delete all data (grades, schedule, users), except default test data.',
+    reset_data_confirm: 'Are you sure you want to reset all data to default? This action is irreversible.',
+    data_reset_success: 'Data successfully reset.',
+    stay: 'Stay',
+    leave_tab: 'Leave Tab',
+    unsaved_canvas_changes: 'You have unsaved changes on the canvas. Are you sure you want to leave? All unsaved data will be lost.',
+    unsaved_changes: 'Unsaved Changes',
+    school_users: 'School Users',
+    global_list: 'Global List',
+    director_fio: 'Director Full Name',
   }
 };
 
@@ -1209,4 +1281,315 @@ export const getUnreadAnnouncementsCount = (state: AppState, user: User): number
     const users = state.users || [];
     return state.announcements.filter(a => isAnnouncementUnreadByUser(a, user, users)).length;
 };
+
+// ==========================================
+// --- SCHOOL ISOLATION HELPER FUNCTIONS ---
+// ==========================================
+
+export const defaultGradingSystem: GradingSystemSettings = {
+    minGrade: 2,
+    maxGrade: 5,
+    useWeights: true,
+    minWeight: 1,
+    maxWeight: 10
+};
+
+export const getDefaultGradeTypes = (): GradeType[] => [
+    { id: uid('gt_def'), key: 'default', name: '...', weight: 1 },
+    ...COEFFICIENT_TYPES.map(def => ({
+        id: uid('gt'),
+        key: def.key,
+        name: def.name,
+        weight: def.weight,
+        isDynamicWeight: def.key === 'nu',
+        isNoWeight: def.key === 'n' || def.key === 'op'
+    }))
+];
+
+export const defaultScheduleSettings: ScheduleSettings = {
+    daysToAddBatch: 1,
+    skippedWeekDays: [0],
+    holidays: [],
+    vacations: [],
+    quarterDefinitions: {
+        'Q1': { start: '', end: '' },
+        'Q2': { start: '', end: '' },
+        'Q3': { start: '', end: '' },
+        'Q4': { start: '', end: '' }
+    }
+};
+
+export const getSchool = (state: AppState, schoolId?: string): School | undefined => {
+    if (!schoolId || !state.schools) return undefined;
+    return state.schools.find(s => s.id === schoolId);
+};
+
+export const getSchoolGradingSystem = (state: AppState, schoolId?: string): GradingSystemSettings => {
+    const school = getSchool(state, schoolId);
+    if (school && school.gradingSystem) return school.gradingSystem;
+    if (state.gradingSystem) return state.gradingSystem;
+    return defaultGradingSystem;
+};
+
+export const getSchoolGradeTypes = (state: AppState, schoolId?: string): GradeType[] => {
+    const school = getSchool(state, schoolId);
+    if (school && school.gradeTypes && school.gradeTypes.length > 0) return school.gradeTypes;
+    if (state.gradeTypes && state.gradeTypes.length > 0) return state.gradeTypes;
+    return getDefaultGradeTypes();
+};
+
+export const getSchoolScheduleSettings = (state: AppState, schoolId?: string): ScheduleSettings => {
+    const school = getSchool(state, schoolId);
+    if (school && school.scheduleSettings) return school.scheduleSettings;
+    if (state.scheduleSettings) return state.scheduleSettings;
+    return defaultScheduleSettings;
+};
+
+export const getSchoolSubjectRequirements = (state: AppState, schoolId?: string): Record<string, Record<string, SubjectRequirement>> => {
+    const school = getSchool(state, schoolId);
+    if (school && school.subjectRequirements) return school.subjectRequirements;
+    if (state.subjectRequirements) return state.subjectRequirements;
+    return {};
+};
+
+export const getSchoolClasses = (state: AppState, schoolId?: string): { class: string; letter: string }[] => {
+    const school = getSchool(state, schoolId);
+    if (school && school.classes && school.classes.length > 0) return school.classes;
+    // If not specified on school, filter by students / teachers in that school or fallback to state.classes
+    if (schoolId) {
+        const schoolClassKeys = new Set<string>();
+        state.users.forEach(u => {
+            if (u.schoolId === schoolId) {
+                if (u.role === 'student' && u.class && u.letter) {
+                    schoolClassKeys.add(`${u.class}_${u.letter}`);
+                }
+                if (u.role === 'teacher' && u.classes) {
+                    u.classes.forEach(c => schoolClassKeys.add(c));
+                }
+            }
+        });
+        if (schoolClassKeys.size > 0) {
+            const parsed = Array.from(schoolClassKeys).map(k => {
+                const parts = k.split('_');
+                return { class: parts[0] || '10', letter: parts[1] || 'А' };
+            });
+            return parsed;
+        }
+    }
+    return state.classes && state.classes.length > 0 ? state.classes : [{ class: '10', letter: 'А' }];
+};
+
+export const getSchoolSubjects = (state: AppState, schoolId?: string): string[] => {
+    const school = getSchool(state, schoolId);
+    if (school && school.subjects && school.subjects.length > 0) return school.subjects;
+    if (schoolId) {
+        const schoolSubjects = new Set<string>();
+        state.users.forEach(u => {
+            if (u.schoolId === schoolId && u.role === 'teacher' && u.subjects) {
+                u.subjects.forEach(s => schoolSubjects.add(s));
+            }
+        });
+        if (schoolSubjects.size > 0) return Array.from(schoolSubjects);
+    }
+    return state.subjects && state.subjects.length > 0 ? state.subjects : ['Математика', 'Русский язык', 'Физика', 'Литература'];
+};
+
+export const getSchoolClassKey = (schoolId: string | undefined, classKey: string): string => {
+    if (!classKey) return '';
+    const pureKey = classKey.includes('__') ? classKey.split('__').pop() || classKey : classKey;
+    if (schoolId) return `${schoolId}__${pureKey}`;
+    return pureKey;
+};
+
+export const getSchoolClassSchedule = (state: AppState, schoolId: string | undefined, classKey: string): Record<string, ScheduleDay> => {
+    if (!state.schedules || !classKey) return {};
+    const pureKey = classKey.includes('__') ? classKey.split('__').pop() || classKey : classKey;
+    if (schoolId) {
+        const scopedKey = `${schoolId}__${pureKey}`;
+        return state.schedules[scopedKey] || {};
+    }
+    return state.schedules[pureKey] || {};
+};
+
+export const setSchoolClassSchedule = (state: AppState, schoolId: string | undefined, classKey: string, schedule: Record<string, ScheduleDay>): void => {
+    if (!state.schedules) state.schedules = {};
+    const targetKey = getSchoolClassKey(schoolId, classKey);
+    state.schedules[targetKey] = schedule;
+};
+
+export const getSchoolClassGrades = (state: AppState, schoolId: string | undefined, classKey: string): Record<string, Grade[]> => {
+    if (!state.grades || !classKey) return {};
+    const pureKey = classKey.includes('__') ? classKey.split('__').pop() || classKey : classKey;
+    if (schoolId) {
+        const scopedKey = `${schoolId}__${pureKey}`;
+        return state.grades[scopedKey] || {};
+    }
+    return state.grades[pureKey] || {};
+};
+
+export const setSchoolClassGrades = (state: AppState, schoolId: string | undefined, classKey: string, grades: Record<string, Grade[]>): void => {
+    if (!state.grades) state.grades = {};
+    const targetKey = getSchoolClassKey(schoolId, classKey);
+    state.grades[targetKey] = grades;
+};
+
+export const getSchoolClassFinalGrades = (state: AppState, schoolId: string | undefined, classKey: string): Record<string, FinalGradeEntry[]> => {
+    if (!state.finalGrades || !classKey) return {};
+    const pureKey = classKey.includes('__') ? classKey.split('__').pop() || classKey : classKey;
+    if (schoolId) {
+        const scopedKey = `${schoolId}__${pureKey}`;
+        return state.finalGrades[scopedKey] || {};
+    }
+    return state.finalGrades[pureKey] || {};
+};
+
+export const setSchoolClassFinalGrades = (state: AppState, schoolId: string | undefined, classKey: string, finalGrades: Record<string, FinalGradeEntry[]>): void => {
+    if (!state.finalGrades) state.finalGrades = {};
+    const targetKey = getSchoolClassKey(schoolId, classKey);
+    state.finalGrades[targetKey] = finalGrades;
+};
+
+export const getSchoolUsers = (state: AppState, schoolId?: string): User[] => {
+    if (!state.users) return [];
+    if (!schoolId) return state.users;
+    return state.users.filter(u => u.schoolId === schoolId);
+};
+
+export const getSchoolHomework = (state: AppState, schoolId?: string, classKey?: string): Homework[] => {
+    if (!state.homework) return [];
+    let list = state.homework;
+    if (schoolId) {
+        list = list.filter(h => {
+            if (h.schoolId) return h.schoolId === schoolId;
+            const author = state.users.find(u => u.id === h.fromId);
+            return author?.schoolId === schoolId;
+        });
+    }
+    if (classKey) {
+        const parts = classKey.split('_');
+        const cNum = parts[0];
+        const cLet = parts[1];
+        list = list.filter(h => h.class === cNum && (!cLet || h.letter === cLet));
+    }
+    return list;
+};
+
+export const getSchoolTeacherAssignments = (state: AppState, schoolId?: string): TeacherAssignment[] => {
+    if (!state.teacherAssignments) return [];
+    if (!schoolId) return state.teacherAssignments;
+    return state.teacherAssignments.filter(a => {
+        if (a.schoolId) return a.schoolId === schoolId;
+        const teacher = state.users.find(u => u.id === a.teacherId);
+        return teacher?.schoolId === schoolId;
+    });
+};
+
+export const getSchoolStudentGroups = (state: AppState, schoolId?: string, classKey?: string): StudentGroup[] => {
+    if (!state.studentGroups) return [];
+    let list = state.studentGroups;
+    if (schoolId) {
+        list = list.filter(g => {
+            if (g.schoolId) return g.schoolId === schoolId;
+            const firstStudent = state.users.find(u => g.studentIds.includes(u.id));
+            return firstStudent ? firstStudent.schoolId === schoolId : true;
+        });
+    }
+    if (classKey) {
+        const pureKey = classKey.includes('__') ? classKey.split('__').pop() || classKey : classKey;
+        list = list.filter(g => {
+            const gPureKey = g.classId.includes('__') ? g.classId.split('__').pop() || g.classId : g.classId;
+            return gPureKey === pureKey;
+        });
+    }
+    return list;
+};
+
+export const setSchoolGradingSystem = (state: AppState, schoolId: string | undefined, gradingSystem: GradingSystemSettings) => {
+    if (schoolId) {
+        const school = getSchool(state, schoolId);
+        if (school) {
+            school.gradingSystem = gradingSystem;
+            return;
+        }
+    }
+    state.gradingSystem = gradingSystem;
+};
+
+export const setSchoolGradeTypes = (state: AppState, schoolId: string | undefined, gradeTypes: GradeType[]) => {
+    if (schoolId) {
+        const school = getSchool(state, schoolId);
+        if (school) {
+            school.gradeTypes = gradeTypes;
+            return;
+        }
+    }
+    state.gradeTypes = gradeTypes;
+};
+
+export const setSchoolScheduleSettings = (state: AppState, schoolId: string | undefined, scheduleSettings: ScheduleSettings) => {
+    if (schoolId) {
+        const school = getSchool(state, schoolId);
+        if (school) {
+            school.scheduleSettings = scheduleSettings;
+            return;
+        }
+    }
+    state.scheduleSettings = scheduleSettings;
+};
+
+export const setSchoolSubjectRequirements = (state: AppState, schoolId: string | undefined, reqs: Record<string, Record<string, SubjectRequirement>>) => {
+    if (schoolId) {
+        const school = getSchool(state, schoolId);
+        if (school) {
+            school.subjectRequirements = reqs;
+            return;
+        }
+    }
+    state.subjectRequirements = reqs;
+};
+
+export const setSchoolClasses = (state: AppState, schoolId: string | undefined, classes: { class: string; letter: string }[]) => {
+    if (schoolId) {
+        const school = getSchool(state, schoolId);
+        if (school) {
+            school.classes = classes;
+            return;
+        }
+    }
+    state.classes = classes;
+};
+
+export const setSchoolSubjects = (state: AppState, schoolId: string | undefined, subjects: string[]) => {
+    if (schoolId) {
+        const school = getSchool(state, schoolId);
+        if (school) {
+            school.subjects = subjects;
+            return;
+        }
+    }
+    state.subjects = subjects;
+};
+
+export const clearSchoolGrades = (state: AppState, schoolId: string | undefined) => {
+    if (!schoolId) {
+        state.grades = {};
+        state.finalGrades = {};
+        return;
+    }
+    const schoolClasses = getSchoolClasses(state, schoolId);
+    schoolClasses.forEach(c => {
+        const pureKey = `${c.class}_${c.letter}`;
+        const scopedKey = `${schoolId}__${pureKey}`;
+        if (state.grades) {
+            delete state.grades[scopedKey];
+            delete state.grades[pureKey];
+        }
+        if (state.finalGrades) {
+            delete state.finalGrades[scopedKey];
+            delete state.finalGrades[pureKey];
+        }
+    });
+};
+
+
 

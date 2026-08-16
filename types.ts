@@ -5,6 +5,12 @@ export interface School {
   id: string;
   name: string;
   directorId: string; // The ID of the director who owns this school
+  classes?: { class: string; letter: string }[];
+  subjects?: string[];
+  gradingSystem?: GradingSystemSettings;
+  gradeTypes?: GradeType[];
+  scheduleSettings?: ScheduleSettings;
+  subjectRequirements?: Record<string, Record<string, SubjectRequirement>>;
 }
 
 export interface EmployeePermissions {
@@ -68,6 +74,7 @@ export interface Attachment {
 
 export interface Homework {
   id: string;
+  schoolId?: string;
   class: string;
   letter: string;
   date: string;
@@ -150,6 +157,7 @@ export interface ScheduleSettings {
 // --- NEW ASSIGNMENTS & GROUPS ---
 export interface TeacherAssignment {
     id: string;
+    schoolId?: string;
     teacherId: string;
     classId: string; // "10_A"
     subject: string;
@@ -157,6 +165,7 @@ export interface TeacherAssignment {
 
 export interface StudentGroup {
     id: string;
+    schoolId?: string;
     classId: string; // "10_A"
     name: string; // "Группа 1"
     studentIds: string[];

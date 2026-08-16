@@ -56,7 +56,7 @@ export default function CreatorDashboard({ state, onUpdate, user }: Props) {
         <TabButton active={view === 'users'} onClick={() => handleTabClick('users')} label={t('global_users')} />
         <TabButton active={view === 'rating'} onClick={() => handleTabClick('rating')} label={t('rating')} />
         <TabButton active={view === 'messages'} onClick={() => handleTabClick('messages')} label={t('messages')} badgeCount={unreadMessagesCount} />
-        <TabButton active={view === 'eljurInfo'} onClick={() => handleTabClick('eljurInfo')} label={lang === 'ru' ? 'Инфо ЭлЖур' : 'Eljur Info'} />
+        <TabButton active={view === 'eljurInfo'} onClick={() => handleTabClick('eljurInfo')} label={t('info_eljur')} />
       </div>
 
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -69,19 +69,17 @@ export default function CreatorDashboard({ state, onUpdate, user }: Props) {
       </div>
 
       {showUnsavedModal && (
-        <Modal isOpen={true} onClose={() => setShowUnsavedModal(false)} title={lang === 'ru' ? 'Несохраненные изменения' : 'Unsaved Changes'}>
+        <Modal isOpen={true} onClose={() => setShowUnsavedModal(false)} title={t('unsaved_changes')}>
           <div className="p-6">
             <p className="mb-6 text-slate-700 dark:text-slate-300">
-              {lang === 'ru' 
-                ? 'У вас есть несохраненные изменения на холсте. Вы уверены, что хотите уйти? Все несохраненные данные будут потеряны.' 
-                : 'You have unsaved changes on the canvas. Are you sure you want to leave? All unsaved data will be lost.'}
+              {t('unsaved_canvas_changes')}
             </p>
             <div className="flex justify-end gap-3">
               <Button variant="outline" onClick={() => setShowUnsavedModal(false)}>
-                {lang === 'ru' ? 'Остаться' : 'Stay'}
+                {t('stay')}
               </Button>
               <Button variant="danger" onClick={confirmLeave}>
-                {lang === 'ru' ? 'Покинуть вкладку' : 'Leave Tab'}
+                {t('leave_tab')}
               </Button>
             </div>
           </div>

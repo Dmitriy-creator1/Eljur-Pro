@@ -7,14 +7,15 @@ import { Printer } from 'lucide-react';
 
 export const StudentSchedule = ({ state, user }: { state: AppState, user: User }) => {
     const classKey = `${user.class}_${user.letter}`;
-    const schedule = state.schedules[classKey] || {};
+    const schedule = H.getSchoolClassSchedule(state, user.schoolId, classKey);
+    const scheduleSettings = H.getSchoolScheduleSettings(state, user.schoolId);
     const lang = state.settings.language || 'ru';
     const t = (k: string) => H.t(k, lang);
     const systemNow = new Date(Date.now() + (state.settings.systemTimeOffset || 0));
     const currentWeekStartForSchedule = H.getStartOfWeek(systemNow);
     const scheduleDays = Object.values(schedule).filter(d => H.isDateInWeek(d.date, currentWeekStartForSchedule)).sort((a,b) => a.date.localeCompare(b.date));
     const scheduleDates = scheduleDays.map(d => d.date);
-    const scheduleVacation = H.getVacationForWeek(currentWeekStartForSchedule, state.scheduleSettings, scheduleDates);
+    const scheduleVacation = H.getVacationForWeek(currentWeekStartForSchedule, scheduleSettings, scheduleDates);
 
     return (
         <div className="space-y-6">
@@ -25,8 +26,8 @@ export const StudentSchedule = ({ state, user }: { state: AppState, user: User }
             {scheduleVacation && scheduleVacation.isFullWeek && (<div className="bg-green-100 text-green-800 text-center py-3 rounded-xl font-bold border border-green-200 uppercase tracking-widest shadow-sm dark:bg-green-900/30 dark:text-green-300 dark:border-green-800">{scheduleVacation.emoji} {scheduleVacation.title} ({scheduleVacation.range}) {scheduleVacation.emoji}</div>)}
             {scheduleDays.length === 0 && <p className="text-center text-slate-400 py-10">{t('no_schedule')}</p>}
             {scheduleDays.map(day => {
-               const holidayInfo = H.isHoliday(day.date, state.scheduleSettings);
-               const vacForDay = H.getVacationForDay(day.date, state.scheduleSettings);
+               const holidayInfo = H.isHoliday(day.date, scheduleSettings);
+               const vacForDay = H.getVacationForDay(day.date, scheduleSettings);
                const isVacationDay = !!vacForDay;
                const isHolidayDay = !!holidayInfo;
                let borderClass = 'border-slate-300 dark:border-slate-700';

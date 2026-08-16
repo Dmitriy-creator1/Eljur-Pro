@@ -210,32 +210,55 @@ export default function App() {
              await DB.saveState(loaded);
          }
 
-        // Migration: Ensure schools array exists
-        if (!loaded.schools) {
+        // Migration: Ensure schools array exists and default test school exists
+        if (!loaded.schools || loaded.schools.length === 0) {
           loaded.schools = [defaultSchool];
           loaded.users?.forEach((u: any) => { if (!u.schoolId) u.schoolId = 'school_1'; });
+          migrationNeeded = true;
+        } else if (!loaded.schools.some((s: any) => s.id === 'school_1')) {
+          loaded.schools.unshift(defaultSchool);
+          migrationNeeded = true;
         }
 
+        // Ensure test users exist if missing
+        const defaultTestUsers = [
+            { id: 'u_creator', schoolId: 'global', fio: 'Создатель', role: 'creator', login: 'creator', password: 'admin' },
+            { id: 'u_dir', schoolId: 'school_1', fio: 'Иванов Иван Иванович', role: 'director', login: 'director', password: 'dir123' },
+            { id: 'u_teacher', schoolId: 'school_1', fio: 'Петров Пётр Петрович', role: 'teacher', login: 'teacher', password: 'teach123', subjects: ['Математика'], classes: ['10_A'] },
+            { id: 's_1', schoolId: 'school_1', fio: 'Кузнецов Алексей Сергеевич', role: 'student', login: 's10a_1', password: 'pass1', class: '10', letter: 'A' },
+            { id: 'u_emp', schoolId: 'school_1', fio: 'Сидоров Сидр Сидорович', role: 'employee', customRole: 'Лаборант', login: 'emp', password: '123' }
+        ];
+        defaultTestUsers.forEach(tu => {
+            const found = loaded.users?.find((u: any) => u.id === tu.id || (u.login === tu.login && u.role === tu.role));
+            if (!found) {
+                loaded.users.push(tu);
+                migrationNeeded = true;
+            }
+        });
+
         // Ensure core arrays/objects exist to prevent .map/.forEach crashes
-        if (!loaded.classes) loaded.classes = [];
-        if (!loaded.subjects) loaded.subjects = [];
-        if (!loaded.users) loaded.users = [];
-        if (!loaded.schedules) loaded.schedules = {};
-        if (!loaded.grades) loaded.grades = {};
-        if (!loaded.finalGrades) loaded.finalGrades = {};
-        if (!loaded.homework) loaded.homework = [];
-        if (!loaded.messages) loaded.messages = [];
-        if (!loaded.announcements) loaded.announcements = [];
-        if (!loaded.teacherAssignments) loaded.teacherAssignments = [];
+        if (!loaded.classes) { loaded.classes = [{ class: '10', letter: 'A' }]; migrationNeeded = true; }
+        if (!loaded.subjects) { loaded.subjects = ['Математика', 'Русский', 'Физика']; migrationNeeded = true; }
+        if (!loaded.users) { loaded.users = []; migrationNeeded = true; }
+        if (!loaded.schedules) { loaded.schedules = {}; migrationNeeded = true; }
+        if (!loaded.grades) { loaded.grades = {}; migrationNeeded = true; }
+        if (!loaded.finalGrades) { loaded.finalGrades = {}; migrationNeeded = true; }
+        if (!loaded.homework) { loaded.homework = []; migrationNeeded = true; }
+        if (!loaded.messages) { loaded.messages = []; migrationNeeded = true; }
+        if (!loaded.announcements) { loaded.announcements = []; migrationNeeded = true; }
+        if (!loaded.teacherAssignments) { loaded.teacherAssignments = []; migrationNeeded = true; }
+        if (!loaded.studentGroups) { loaded.studentGroups = []; migrationNeeded = true; }
+        if (!loaded.subjectRequirements) { loaded.subjectRequirements = {}; migrationNeeded = true; }
 
-        // Migration: Clean up 'schooltr__' (or any '__' prefixes) from database state
-        let migrationNeeded = false;
-        
-        const cleanKey = (k: any) => {
-            if (typeof k !== 'string') return k;
-            return k.includes('__') ? k.split('__').pop() || k : k;
-        };
+        if (!loaded.settings) {
+            loaded.settings = { theme: 'light', language: 'ru', showSeasonalAnimations: true };
+            migrationNeeded = true;
+        } else {
+            if (loaded.settings.showSeasonalAnimations === undefined) loaded.settings.showSeasonalAnimations = true;
+            if (!loaded.settings.language) loaded.settings.language = 'ru';
+        }
 
+        // Scope unscoped schedule keys to default school_1
         if (loaded.schedules) {
             const newSchedules: any = {};
             Object.entries(loaded.schedules).forEach(([k, v]) => {
@@ -246,101 +269,60 @@ export default function App() {
                         if (!l.subgroups) l.subgroups = [];
                     });
                 });
-                newSchedules[cleanKey(k)] = dayDict;
-                if (k.includes('__')) migrationNeeded = true;
+                const targetKey = k.includes('__') ? k : `school_1__${k}`;
+                newSchedules[targetKey] = dayDict;
+                if (!k.includes('__')) migrationNeeded = true;
             });
             if (migrationNeeded) loaded.schedules = newSchedules;
         }
-        if (loaded.grades) {
-            const newGrades: any = {};
-            Object.entries(loaded.grades).forEach(([k, v]) => {
-                newGrades[cleanKey(k)] = v;
-                if (k.includes('__')) migrationNeeded = true;
-            });
-            if (migrationNeeded) loaded.grades = newGrades;
-        }
-        if (loaded.finalGrades) {
-            const newFinalGrades: any = {};
-            Object.entries(loaded.finalGrades).forEach(([k, v]) => {
-                newFinalGrades[cleanKey(k)] = v;
-                if (k.includes('__')) migrationNeeded = true;
-            });
-            if (migrationNeeded) loaded.finalGrades = newFinalGrades;
-        }
-        if (loaded.homework) {
-            loaded.homework.forEach((h: any) => {
-                if (h.class && typeof h.class === 'string' && h.class.includes('__')) {
-                    h.class = cleanKey(h.class);
-                    migrationNeeded = true;
+
+        if (loaded.userOrder || !loaded.userOrder || loaded.userOrder.length < loaded.users.length) {
+            const existingOrder = new Set(loaded.userOrder || []);
+            const newOrder = [...(loaded.userOrder || [])];
+            loaded.users.forEach((u: any) => {
+                if (!existingOrder.has(u.id)) {
+                    newOrder.push(u.id);
                 }
             });
-        }
-        if (loaded.classes) {
-            loaded.classes.forEach((c: any) => {
-                if (c.class && typeof c.class === 'string' && c.class.includes('__')) {
-                    c.class = cleanKey(c.class);
-                    migrationNeeded = true;
-                }
-            });
-        }
-        loaded.users.forEach((u: any) => {
-            if (u.classes && Array.isArray(u.classes)) {
-                const cleaned = u.classes.map((c: string) => cleanKey(c));
-                if (JSON.stringify(cleaned) !== JSON.stringify(u.classes)) {
-                    u.classes = cleaned;
-                    migrationNeeded = true;
-                }
-            }
-            if (u.class && typeof u.class === 'string' && u.class.includes('__')) {
-                u.class = cleanKey(u.class);
+            if (JSON.stringify(newOrder) !== JSON.stringify(loaded.userOrder)) {
+                loaded.userOrder = newOrder;
                 migrationNeeded = true;
             }
-        });
-        if (loaded.teacherAssignments) {
-            loaded.teacherAssignments.forEach((ta: any) => {
-                if (ta.classId && typeof ta.classId === 'string' && ta.classId.includes('__')) {
-                    ta.classId = cleanKey(ta.classId);
-                    migrationNeeded = true;
-                }
-            });
         }
-        if (migrationNeeded && isFirstSync) {
-            // Save state back immediately if we did a migration on first load
-            DB.saveState(loaded);
-        }
-
-        if (!loaded.users.find((u: any) => u.role === 'creator')) {
-            loaded.users.push({id:'u_creator', schoolId: 'global', fio: 'Создатель', role: 'creator', login: 'creator', password: 'admin'});
-        }
-        if (!loaded.userOrder) loaded.userOrder = loaded.users.map((u: any) => u.id);
 
         if (!loaded.scheduleSettings) {
             loaded.scheduleSettings = { daysToAddBatch: 1, skippedWeekDays: [0], holidays: [], vacations: [], quarterDefinitions: { 'Q1': { start: '', end: '' }, 'Q2': { start: '', end: '' }, 'Q3': { start: '', end: '' }, 'Q4': { start: '', end: '' } } };
+            migrationNeeded = true;
         } else {
-            if (!loaded.scheduleSettings.holidays) loaded.scheduleSettings.holidays = [];
-            if (!loaded.scheduleSettings.vacations) loaded.scheduleSettings.vacations = [];
-            if (!loaded.scheduleSettings.skippedWeekDays) loaded.scheduleSettings.skippedWeekDays = [0];
-            if (!loaded.scheduleSettings.quarterDefinitions) loaded.scheduleSettings.quarterDefinitions = { 'Q1': { start: '', end: '' }, 'Q2': { start: '', end: '' }, 'Q3': { start: '', end: '' }, 'Q4': { start: '', end: '' } };
+            if (!loaded.scheduleSettings.holidays) { loaded.scheduleSettings.holidays = []; migrationNeeded = true; }
+            if (!loaded.scheduleSettings.vacations) { loaded.scheduleSettings.vacations = []; migrationNeeded = true; }
+            if (!loaded.scheduleSettings.skippedWeekDays) { loaded.scheduleSettings.skippedWeekDays = [0]; migrationNeeded = true; }
+            if (!loaded.scheduleSettings.quarterDefinitions) { loaded.scheduleSettings.quarterDefinitions = { 'Q1': { start: '', end: '' }, 'Q2': { start: '', end: '' }, 'Q3': { start: '', end: '' }, 'Q4': { start: '', end: '' } }; migrationNeeded = true; }
         }
         if (!loaded.gradingSystem) {
             loaded.gradingSystem = { minGrade: 2, maxGrade: 5, useWeights: true, minWeight: 1, maxWeight: 10 };
+            migrationNeeded = true;
         }
         if (!loaded.gradeTypes || loaded.gradeTypes.length === 0) {
             loaded.gradeTypes = COEFFICIENT_TYPES.map(def => ({ id: H.uid('gt'), key: def.key, name: def.name, weight: def.weight, isDynamicWeight: def.key === 'nu', isNoWeight: def.key === 'n' || def.key === 'op' }));
+            migrationNeeded = true;
         }
-        if (!loaded.gradeTypes.find((gt: any) => gt.name === '...')) { loaded.gradeTypes.unshift({ id: H.uid('gt_def'), key: 'default', name: '...', weight: 1 }); }
-        if (!loaded.subjectRequirements) loaded.subjectRequirements = {};
-        if (!loaded.scheduleSettings.quarterDefinitions) { loaded.scheduleSettings.quarterDefinitions = { 'Q1': { start: '', end: '' }, 'Q2': { start: '', end: '' }, 'Q3': { start: '', end: '' }, 'Q4': { start: '', end: '' } }; }
-        if (!loaded.finalGrades) loaded.finalGrades = {};
-        if (loaded.settings && loaded.settings.showSeasonalAnimations === undefined) { loaded.settings.showSeasonalAnimations = true; }
-        if (!loaded.teacherAssignments) loaded.teacherAssignments = [];
-        if (!loaded.studentGroups) loaded.studentGroups = [];
+        if (!loaded.gradeTypes.find((gt: any) => gt.name === '...')) {
+            loaded.gradeTypes.unshift({ id: H.uid('gt_def'), key: 'default', name: '...', weight: 1 });
+            migrationNeeded = true;
+        }
 
         if (loaded.scheduleSettings && loaded.scheduleSettings.holidays) {
             const rawHolidays = loaded.scheduleSettings.holidays as any[];
             if (rawHolidays.length > 0 && typeof rawHolidays[0] === 'string') {
                 loaded.scheduleSettings.holidays = rawHolidays.map((dateStr: string) => ({ date: dateStr, title: 'Выходной' }));
+                migrationNeeded = true;
             }
+        }
+        
+        if (migrationNeeded) {
+            // Save state back to Firestore to ensure permanent database stability
+            DB.saveState(loaded);
         }
         
         setAppState(loaded);
@@ -644,7 +626,7 @@ export default function App() {
                   </div>
                   <div className="hidden sm:block">
                     <h1 className="text-lg font-bold text-slate-800 leading-tight dark:text-white font-heading">
-                      {currentUser.role === 'creator' ? 'Панель Создателя' : (currentSchool?.name || 'ЭлЖур')}
+                      {currentUser.role === 'creator' ? t('creator_panel') : (currentSchool?.name || t('footer_text'))}
                     </h1>
                     <p className="text-xs text-slate-500 font-medium dark:text-slate-400">v7 Release</p>
                   </div>
@@ -654,7 +636,7 @@ export default function App() {
                     <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{currentUser.fio}</p>
                     <div className="flex justify-end mt-0.5">
                        <p className="text-[10px] uppercase font-bold tracking-wider text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full inline-block dark:bg-slate-800 dark:text-slate-400">
-                         {currentUser.role === 'director' ? t('director') : currentUser.role === 'teacher' ? t('teacher') : currentUser.role === 'student' ? t('student') : currentUser.role === 'employee' ? t('employee') : t('creator')}
+                         {currentUser.role === 'director' ? t('director') : currentUser.role === 'teacher' ? t('teacher') : currentUser.role === 'student' ? t('student') : currentUser.role === 'employee' ? (currentUser.customRole || t('employee')) : t('creator')}
                        </p>
                     </div>
                   </div>
@@ -714,7 +696,7 @@ export default function App() {
         </>
       )}
 
-      <Modal isOpen={showEljurInfo} onClose={() => setShowEljurInfo(false)} title={lang === 'ru' ? 'Информация об ЭлЖуре' : 'Eljur Info'} maxWidth="max-w-5xl w-full">
+      <Modal isOpen={showEljurInfo} onClose={() => setShowEljurInfo(false)} title={t('info_eljur')} maxWidth="max-w-5xl w-full">
         {renderEljurInfo()}
       </Modal>
 

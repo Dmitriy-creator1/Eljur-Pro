@@ -46,14 +46,14 @@ export const StudentRating = ({ state, schoolId, isGlobal = false }: { state: Ap
 
     const students = state.users.filter(u => {
         if (u.role !== 'student') return false;
-        if (isGlobal) { if (filterSchool && u.schoolId !== filterSchool) return false; } else { if (u.schoolId !== schoolId) return false; }
+        if (isGlobal) { if (filterSchool && u.schoolId !== filterSchool) return false; } else { if (schoolId && u.schoolId !== schoolId) return false; }
         if (filterClass) { if (`${u.class}_${u.letter}` !== filterClass) return false; }
         return true;
     });
 
     const ratingListRaw = students.map(s => {
         const classKey = `${s.class}_${s.letter}`;
-        const allGrades = state.grades[classKey] || {};
+        const allGrades = H.getSchoolClassGrades(state, s.schoolId, classKey);
         let totalWeighted = 0;
         let totalWeights = 0;
         let subjectsToCount = new Set<string>();
@@ -63,7 +63,7 @@ export const StudentRating = ({ state, schoolId, isGlobal = false }: { state: Ap
         
         if (selectedProfile) profileSubjs.forEach(s => subjectsToCount.add(s));
         if (selectedSubjects.length > 0) selectedSubjects.forEach(s => subjectsToCount.add(s));
-        if (!selectedProfile && selectedSubjects.length === 0) state.subjects.forEach(s => subjectsToCount.add(s));
+        if (!selectedProfile && selectedSubjects.length === 0) H.getSchoolSubjects(state, s.schoolId).forEach(s => subjectsToCount.add(s));
         
         const subjectArray = Array.from(subjectsToCount);
         Object.entries(allGrades).forEach(([subjName, grades]) => {
@@ -124,7 +124,7 @@ export const StudentRating = ({ state, schoolId, isGlobal = false }: { state: Ap
                         {showClassDropdown && (
                             <div className="absolute top-full left-0 mt-2 z-50 w-full bg-white border border-slate-200 rounded-xl shadow-xl p-1 dark:bg-slate-900 dark:border-slate-700 flex flex-col animate-in fade-in slide-in-from-top-2 max-h-60 overflow-y-auto custom-scrollbar">
                                 <button onClick={() => { setFilterClass(''); setShowClassDropdown(false); }} className={`text-left w-full px-3 py-2 rounded-lg text-sm transition-colors ${filterClass === '' ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800'}`}>{t('all_classes')}</button>
-                                {state.classes.map(c => (
+                                {H.getSchoolClasses(state, isGlobal ? filterSchool : schoolId).map(c => (
                                     <button 
                                         key={`${c.class}_${c.letter}`}
                                         onClick={() => { setFilterClass(`${c.class}_${c.letter}`); setShowClassDropdown(false); }}
