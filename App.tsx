@@ -28,13 +28,13 @@ export const defaultState: AppState = {
   users: [
     {id:'u_creator', schoolId: 'global', fio: 'Создатель', role: 'creator', login: 'creator', password: 'admin'},
     {id:'u_dir', schoolId: 'school_1', fio:'Иванов Иван',role:'director',login:'director',password:'dir123'},
-    {id:'u_teacher', schoolId: 'school_1', fio:'Петров Пётр',role:'teacher',login:'teacher',password:'teach123', subjects:['Математика'], classes:['10_A']},
-    {id:'s_1', schoolId: 'school_1', fio:'Кузнецов Алексей',role:'student',login:'s10a_1',password:'pass1', class:'10', letter:'A'},
+    {id:'u_teacher', schoolId: 'school_1', fio:'Петров Пётр',role:'teacher',login:'teacher',password:'teach123', subjects:['Математика'], classes:[]},
+    {id:'s_1', schoolId: 'school_1', fio:'Кузнецов Алексей',role:'student',login:'s10a_1',password:'pass1'},
     {id:'u_emp', schoolId: 'school_1', fio:'Сидоров Сидр', role:'employee', customRole:'Лаборант', login:'emp', password:'123'}
   ],
   userOrder: ['u_dir', 'u_teacher', 'u_emp', 's_1'],
-  classes: [{class:'10', letter:'A'}],
-  subjects: ['Математика','Русский','Физика'],
+  classes: [],
+  subjects: ['Математика','Русский язык','Физика'],
   schedules: {},
   homework: [],
   messages: [],
@@ -225,8 +225,8 @@ export default function App() {
         const defaultTestUsers = [
             { id: 'u_creator', schoolId: 'global', fio: 'Создатель', role: 'creator', login: 'creator', password: 'admin' },
             { id: 'u_dir', schoolId: 'school_1', fio: 'Иванов Иван Иванович', role: 'director', login: 'director', password: 'dir123' },
-            { id: 'u_teacher', schoolId: 'school_1', fio: 'Петров Пётр Петрович', role: 'teacher', login: 'teacher', password: 'teach123', subjects: ['Математика'], classes: ['10_A'] },
-            { id: 's_1', schoolId: 'school_1', fio: 'Кузнецов Алексей Сергеевич', role: 'student', login: 's10a_1', password: 'pass1', class: '10', letter: 'A' },
+            { id: 'u_teacher', schoolId: 'school_1', fio: 'Петров Пётр Петрович', role: 'teacher', login: 'teacher', password: 'teach123', subjects: ['Математика'], classes: [] },
+            { id: 's_1', schoolId: 'school_1', fio: 'Кузнецов Алексей Сергеевич', role: 'student', login: 's10a_1', password: 'pass1' },
             { id: 'u_emp', schoolId: 'school_1', fio: 'Сидоров Сидр Сидорович', role: 'employee', customRole: 'Лаборант', login: 'emp', password: '123' }
         ];
         defaultTestUsers.forEach(tu => {
@@ -238,8 +238,8 @@ export default function App() {
         });
 
         // Ensure core arrays/objects exist to prevent .map/.forEach crashes
-        if (!loaded.classes) { loaded.classes = [{ class: '10', letter: 'A' }]; migrationNeeded = true; }
-        if (!loaded.subjects) { loaded.subjects = ['Математика', 'Русский', 'Физика']; migrationNeeded = true; }
+        if (!loaded.classes) { loaded.classes = []; migrationNeeded = true; }
+        if (!loaded.subjects) { loaded.subjects = ['Математика', 'Русский язык', 'Физика']; migrationNeeded = true; }
         if (!loaded.users) { loaded.users = []; migrationNeeded = true; }
         if (!loaded.schedules) { loaded.schedules = {}; migrationNeeded = true; }
         if (!loaded.grades) { loaded.grades = {}; migrationNeeded = true; }
@@ -250,6 +250,33 @@ export default function App() {
         if (!loaded.teacherAssignments) { loaded.teacherAssignments = []; migrationNeeded = true; }
         if (!loaded.studentGroups) { loaded.studentGroups = []; migrationNeeded = true; }
         if (!loaded.subjectRequirements) { loaded.subjectRequirements = {}; migrationNeeded = true; }
+
+        // Clean up invalid/orphaned teacher classes and student classes that do not exist in the school or global classes
+        if (loaded.users) {
+            const validClasses = new Set<string>();
+            (loaded.classes || []).forEach((c: any) => validClasses.add(`${c.class}_${c.letter}`));
+            (loaded.schools || []).forEach((s: any) => {
+                (s.classes || []).forEach((c: any) => validClasses.add(`${c.class}_${c.letter}`));
+            });
+
+            loaded.users.forEach((u: any) => {
+                if (u.role === 'teacher' && u.classes) {
+                    const originalLength = u.classes.length;
+                    u.classes = u.classes.filter((cKey: string) => validClasses.has(cKey));
+                    if (u.classes.length !== originalLength) {
+                        migrationNeeded = true;
+                    }
+                }
+                if (u.role === 'student' && (u.class || u.letter)) {
+                    const key = `${u.class}_${u.letter}`;
+                    if (!validClasses.has(key)) {
+                        u.class = undefined;
+                        u.letter = undefined;
+                        migrationNeeded = true;
+                    }
+                }
+            });
+        }
 
         if (!loaded.settings) {
             loaded.settings = { theme: 'light', language: 'ru', showSeasonalAnimations: true };

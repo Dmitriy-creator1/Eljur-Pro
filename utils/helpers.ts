@@ -1355,28 +1355,18 @@ export const getSchoolSubjectRequirements = (state: AppState, schoolId?: string)
 export const getSchoolClasses = (state: AppState, schoolId?: string): { class: string; letter: string }[] => {
     const school = getSchool(state, schoolId);
     if (school && school.classes && school.classes.length > 0) return school.classes;
-    // If not specified on school, filter by students / teachers in that school or fallback to state.classes
+    return state.classes || [];
+};
+
+export const setSchoolClasses = (state: AppState, schoolId: string | undefined, classes: { class: string; letter: string }[]) => {
     if (schoolId) {
-        const schoolClassKeys = new Set<string>();
-        state.users.forEach(u => {
-            if (u.schoolId === schoolId) {
-                if (u.role === 'student' && u.class && u.letter) {
-                    schoolClassKeys.add(`${u.class}_${u.letter}`);
-                }
-                if (u.role === 'teacher' && u.classes) {
-                    u.classes.forEach(c => schoolClassKeys.add(c));
-                }
-            }
-        });
-        if (schoolClassKeys.size > 0) {
-            const parsed = Array.from(schoolClassKeys).map(k => {
-                const parts = k.split('_');
-                return { class: parts[0] || '10', letter: parts[1] || 'А' };
-            });
-            return parsed;
+        const school = getSchool(state, schoolId);
+        if (school) {
+            school.classes = classes;
+            return;
         }
     }
-    return state.classes && state.classes.length > 0 ? state.classes : [{ class: '10', letter: 'А' }];
+    state.classes = classes;
 };
 
 export const getSchoolSubjects = (state: AppState, schoolId?: string): string[] => {
@@ -1546,17 +1536,6 @@ export const setSchoolSubjectRequirements = (state: AppState, schoolId: string |
         }
     }
     state.subjectRequirements = reqs;
-};
-
-export const setSchoolClasses = (state: AppState, schoolId: string | undefined, classes: { class: string; letter: string }[]) => {
-    if (schoolId) {
-        const school = getSchool(state, schoolId);
-        if (school) {
-            school.classes = classes;
-            return;
-        }
-    }
-    state.classes = classes;
 };
 
 export const setSchoolSubjects = (state: AppState, schoolId: string | undefined, subjects: string[]) => {
