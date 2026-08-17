@@ -10,14 +10,14 @@ export const db = getFirestore(app, (firebaseConfig as any).firestoreDatabaseId)
 export const auth = getAuth(app);
 
 const DB_NAME = 'ElZhurDB_v7';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_ASSETS = 'assets';
 
 // Asset storage remains in IndexedDB as Firestore has 1MB document limits 
 // and storing large blobs in Firestore isn't optimal without Firebase Storage.
 export const openDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 2);
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
     request.onupgradeneeded = (e: IDBVersionChangeEvent) => {
