@@ -5,11 +5,14 @@ import * as H from '../../utils/helpers';
 import { Button, Select, Card, Modal } from '../../components/ui';
 import { Briefcase, Copy, ChevronUp, ChevronDown, RefreshCw, X as XIcon } from 'lucide-react';
 
-export const TeacherLoadManager = ({ state, onUpdate }: { state: AppState, onUpdate: (s: AppState) => void }) => {
-    const teachers = state.users.filter(u => u.role === 'teacher').sort((a,b) => a.fio.localeCompare(b.fio));
+export const TeacherLoadManager = ({ state, onUpdate, user }: { state: AppState, onUpdate: (s: AppState) => void, user?: User }) => {
+    const schoolId = user?.schoolId;
+    const teachers = state.users.filter(u => u.role === 'teacher' && (schoolId ? u.schoolId === schoolId : true)).sort((a,b) => a.fio.localeCompare(b.fio));
+    const schoolClasses = schoolId ? H.getSchoolClasses(state, schoolId) : state.classes;
+    const schoolSubjects = schoolId ? H.getSchoolSubjects(state, schoolId) : state.subjects;
     const [expandedTeacher, setExpandedTeacher] = useState<string | null>(null);
-    const [newAssignClass, setNewAssignClass] = useState(state.classes[0] ? `${state.classes[0].class}_${state.classes[0].letter}` : '');
-    const [newAssignSubject, setNewAssignSubject] = useState(state.subjects[0] || '');
+    const [newAssignClass, setNewAssignClass] = useState(schoolClasses[0] ? `${schoolClasses[0].class}_${schoolClasses[0].letter}` : '');
+    const [newAssignSubject, setNewAssignSubject] = useState(schoolSubjects[0] || '');
     const lang = state.settings.language || 'ru';
     const t = (k: string) => H.t(k, lang);
     const [confirmSync, setConfirmSync] = useState<{isOpen: boolean, type: 'all' | 'single', teacherId?: string, count?: number} | null>(null);
@@ -29,7 +32,9 @@ export const TeacherLoadManager = ({ state, onUpdate }: { state: AppState, onUpd
     const calculateSyncData = (teacherId?: string) => {
         let addedCount = 0;
         const newAssignments: TeacherAssignment[] = [];
-        Object.entries(state.schedules).forEach(([classKey, scheduleDays]) => {
+        schoolClasses.forEach(c => {
+            const classKey = `${c.class}_${c.letter}`;
+            const scheduleDays = H.getSchoolClassSchedule(state, schoolId, classKey);
             Object.values(scheduleDays).forEach(day => {
                 day.lessons.forEach(l => {
                     const checkAndAdd = (subj: string, tId: string) => {
@@ -130,13 +135,13 @@ export const TeacherLoadManager = ({ state, onUpdate }: { state: AppState, onUpd
                                         <div className="flex-1 min-w-[120px]">
                                             <label className="text-[10px] uppercase font-bold text-slate-400 mb-1.5 block">{t('class')}</label>
                                             <Select className="h-10 py-1 text-sm" value={newAssignClass} onChange={e => setNewAssignClass(e.target.value)}>
-                                                {state.classes.map(c => <option key={`${c.class}_${c.letter}`} value={`${c.class}_${c.letter}`}>{c.class}{c.letter}</option>)}
+                                                {schoolClasses.map(c => <option key={`${c.class}_${c.letter}`} value={`${c.class}_${c.letter}`}>{c.class}{c.letter}</option>)}
                                             </Select>
                                         </div>
                                         <div className="flex-[2] min-w-[180px]">
                                             <label className="text-[10px] uppercase font-bold text-slate-400 mb-1.5 block">{t('subject')}</label>
                                             <Select className="h-10 py-1 text-sm" value={newAssignSubject} onChange={e => setNewAssignSubject(e.target.value)}>
-                                                {state.subjects.map(s => <option key={s} value={s}>{s}</option>)}
+                                                {schoolSubjects.map(s => <option key={s} value={s}>{s}</option>)}
                                             </Select>
                                         </div>
                                         <Button size="md" onClick={() => addAssignment(teacher.id)} className="px-6 h-10">{t('add_subject')}</Button>

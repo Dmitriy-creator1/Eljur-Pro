@@ -1,17 +1,23 @@
 
 import React, { useState, useEffect } from 'react';
-import { AppState, GradeType } from '../../types';
+import { AppState, GradeType, User } from '../../types';
 import * as H from '../../utils/helpers';
 import { Button, Input, Select, Card, Modal } from '../../components/ui';
 import { Sliders, AlertCircle, Check, AlertTriangle, Settings, X as XIcon, Plus, Tag, Trash2, Edit } from 'lucide-react';
 
-export const GradingSetup = ({ state, onUpdate }: { state: AppState, onUpdate: (s: AppState) => void }) => {
+export const GradingSetup = ({ state, onUpdate, user }: { state: AppState, onUpdate: (s: AppState) => void, user?: User }) => {
     const lang = state.settings.language || 'ru';
     const t = (k: string) => H.t(k, lang);
-    const [selectedClass, setSelectedClass] = useState(state.classes[0] ? `${state.classes[0].class}_${state.classes[0].letter}` : '');
+    const schoolId = user?.schoolId;
+    const schoolClasses = H.getSchoolClasses(state, schoolId);
+    const schoolSubjects = H.getSchoolSubjects(state, schoolId);
+    const initialGradingSystem = H.getSchoolGradingSystem(state, schoolId);
+    const currentGradeTypes = H.getSchoolGradeTypes(state, schoolId);
+
+    const [selectedClass, setSelectedClass] = useState(schoolClasses[0] ? `${schoolClasses[0].class}_${schoolClasses[0].letter}` : '');
     
     // Top Section State (Buffered to allow "Save")
-    const [gradingSettings, setGradingSettings] = useState(state.gradingSystem || {
+    const [gradingSettings, setGradingSettings] = useState(initialGradingSystem || {
         minGrade: 2, maxGrade: 5, useWeights: true, minWeight: 1, maxWeight: 10
     });
 
@@ -46,7 +52,7 @@ export const GradingSetup = ({ state, onUpdate }: { state: AppState, onUpdate: (
     }, [statusMsg]);
 
     // Check for changes to disable save button
-    const hasChanges = JSON.stringify(gradingSettings) !== JSON.stringify(state.gradingSystem);
+    const hasChanges = JSON.stringify(gradingSettings) !== JSON.stringify(initialGradingSystem);
 
     const validate = () => {
         if (gradingSettings.minGrade === undefined || isNaN(gradingSettings.minGrade) || gradingSettings.maxGrade === undefined || isNaN(gradingSettings.maxGrade)) return 'Заполните диапазон оценок.';
@@ -69,14 +75,14 @@ export const GradingSetup = ({ state, onUpdate }: { state: AppState, onUpdate: (
         }
         
         // 1. Check for Weight Toggle Change
-        if (gradingSettings.useWeights !== state.gradingSystem?.useWeights) {
+        if (gradingSettings.useWeights !== initialGradingSystem?.useWeights) {
             setWeightResetConfirm(true);
             return;
         }
         
         // 2. Check for conflicts with existing Grade Types (Only if weights are staying ON and not toggled)
         if (gradingSettings.useWeights) {
-            const conflicts = (state.gradeTypes || []).filter(gt => {
+            const conflicts = currentGradeTypes.filter(gt => {
                 if (gt.isDynamicWeight || gt.isNoWeight) return false;
                 return gt.weight < gradingSettings.minWeight || gt.weight > gradingSettings.maxWeight;
             });
@@ -95,7 +101,8 @@ export const GradingSetup = ({ state, onUpdate }: { state: AppState, onUpdate: (
     const proceedWithRangeUpdate = (deleteConflicts: boolean) => {
         if (deleteConflicts) {
             const safeIds = conflictTypes.map(c => c.id);
-            state.gradeTypes = (state.gradeTypes || []).filter(gt => !safeIds.includes(gt.id));
+            const remaining = currentGradeTypes.filter(gt => !safeIds.includes(gt.id));
+            H.setSchoolGradeTypes(state, schoolId, remaining);
         }
         setConfirmConflictModal(false);
         setConfirmStep(1); // Proceed to normal wipe confirmation
@@ -111,16 +118,25 @@ export const GradingSetup = ({ state, onUpdate }: { state: AppState, onUpdate: (
             setConfirmStep(2);
         } else if (confirmStep === 2) {
             // Apply Weight Reset if Toggle Changed
-            if (gradingSettings.useWeights !== state.gradingSystem?.useWeights) {
-                 state.gradeTypes?.forEach(gt => {
+            if (gradingSettings.useWeights !== initialGradingSystem?.useWeights) {
+                 const updatedTypes = currentGradeTypes.map(gt => {
                      if (!gt.isDynamicWeight && !gt.isNoWeight) {
-                         gt.weight = 1;
+                         return { ...gt, weight: 1 };
                      }
+                     return gt;
                  });
+                 H.setSchoolGradeTypes(state, schoolId, updatedTypes);
             }
 
             // EXECUTE SAVE AND WIPE
-            state.gradingSystem = gradingSettings;
+            H.setSchoolGradingSystem(state, schoolId, gradingSettings);
+            if (schoolId) {
+                const school = H.getSchool(state, schoolId);
+                if (school) {
+                    school.grades = {};
+                    school.finalGrades = {};
+                }
+            }
             state.grades = {}; // Wipe grades
             state.finalGrades = {}; // Wipe final grades
             onUpdate(state);
@@ -137,7 +153,7 @@ export const GradingSetup = ({ state, onUpdate }: { state: AppState, onUpdate: (
 
     // Helper to calculate lessons per week for the currently viewed week in system
     const getLessonsPerWeek = (classKey: string, subject: string): number => {
-        const schedule = state.schedules[classKey];
+        const schedule = H.getSchoolClassSchedule(state, schoolId, classKey);
         if (!schedule) return 0;
         
         // Use system time for current week calculation
@@ -159,14 +175,25 @@ export const GradingSetup = ({ state, onUpdate }: { state: AppState, onUpdate: (
     };
 
     const updateRequirement = (subject: string, field: 'type' | 'minGrades', value: any) => {
+        const targetClassKey = H.getSchoolClassKey(schoolId, selectedClass);
         if (!state.subjectRequirements) state.subjectRequirements = {};
-        if (!state.subjectRequirements[selectedClass]) state.subjectRequirements[selectedClass] = {};
-        
-        if (!state.subjectRequirements[selectedClass][subject]) {
-            state.subjectRequirements[selectedClass][subject] = { type: 'auto', minGrades: 0 };
+        if (!state.subjectRequirements[targetClassKey]) state.subjectRequirements[targetClassKey] = {};
+        if (!state.subjectRequirements[targetClassKey][subject]) {
+            state.subjectRequirements[targetClassKey][subject] = { type: 'auto', minGrades: 0 };
         }
-        
-        (state.subjectRequirements[selectedClass][subject] as any)[field] = value;
+        (state.subjectRequirements[targetClassKey][subject] as any)[field] = value;
+
+        if (schoolId) {
+            const school = H.getSchool(state, schoolId);
+            if (school) {
+                if (!school.subjectRequirements) school.subjectRequirements = {};
+                if (!school.subjectRequirements[selectedClass]) school.subjectRequirements[selectedClass] = {};
+                if (!school.subjectRequirements[selectedClass][subject]) {
+                    school.subjectRequirements[selectedClass][subject] = { type: 'auto', minGrades: 0 };
+                }
+                (school.subjectRequirements[selectedClass][subject] as any)[field] = value;
+            }
+        }
         onUpdate(state);
     };
 
@@ -193,7 +220,8 @@ export const GradingSetup = ({ state, onUpdate }: { state: AppState, onUpdate: (
 
     const deleteType = (id: string) => {
         if (!confirm('Вы уверены, что хотите удалить этот тип оценки?')) return;
-        state.gradeTypes = (state.gradeTypes || []).filter(gt => gt.id !== id);
+        const updated = currentGradeTypes.filter(gt => gt.id !== id);
+        H.setSchoolGradeTypes(state, schoolId, updated);
         onUpdate(state);
         resetForm();
     };
@@ -202,7 +230,7 @@ export const GradingSetup = ({ state, onUpdate }: { state: AppState, onUpdate: (
         if (!typeName) return setTypeError('Введите название типа');
         
         // Name uniqueness
-        const existingName = (state.gradeTypes || []).find(gt => gt.name.toLowerCase() === typeName.toLowerCase().trim() && gt.id !== editingType?.id);
+        const existingName = currentGradeTypes.find(gt => gt.name.toLowerCase() === typeName.toLowerCase().trim() && gt.id !== editingType?.id);
         if (existingName) return setTypeError('Тип с таким именем уже существует');
 
         // Checkboxes logic
@@ -211,12 +239,12 @@ export const GradingSetup = ({ state, onUpdate }: { state: AppState, onUpdate: (
         // Weight validation (ONLY IF WEIGHTS ARE ENABLED GLOBALLY)
         let finalWeight = 1;
         
-        if (state.gradingSystem?.useWeights) {
+        if (initialGradingSystem?.useWeights) {
             if (!isDynamic && !isNoWeight) {
                 if (typeWeight === '' || typeWeight === undefined) return setTypeError('Введите число для коэффициента');
                 finalWeight = typeof typeWeight === 'string' ? parseFloat(typeWeight) : typeWeight;
-                const min = state.gradingSystem?.minWeight || 1;
-                const max = state.gradingSystem?.maxWeight || 10;
+                const min = initialGradingSystem?.minWeight || 1;
+                const max = initialGradingSystem?.maxWeight || 10;
                 if (isNaN(finalWeight)) return setTypeError('Введите число для коэффициента');
                 if (finalWeight <= 0) return setTypeError('Коэффициент должен быть больше 0');
                 if (finalWeight < min || finalWeight > max) {
@@ -235,20 +263,21 @@ export const GradingSetup = ({ state, onUpdate }: { state: AppState, onUpdate: (
             key: editingType ? (typeCode || editingType.key) : key,
             name: typeName,
             // If global weights are OFF, we save 1. If ON, we use calculated finalWeight (or 0 for special types)
-            weight: !state.gradingSystem?.useWeights ? 1 : (isDynamic || isNoWeight ? 0 : finalWeight),
+            weight: !initialGradingSystem?.useWeights ? 1 : (isDynamic || isNoWeight ? 0 : finalWeight),
             isDynamicWeight: isDynamic,
             isNoWeight: isNoWeight
         };
 
+        const updatedTypes = [...currentGradeTypes];
         if (editingType) {
-            const idx = (state.gradeTypes || []).findIndex(gt => gt.id === editingType.id);
+            const idx = updatedTypes.findIndex(gt => gt.id === editingType.id);
             if (idx > -1) {
-                state.gradeTypes![idx] = newType;
+                updatedTypes[idx] = newType;
             }
         } else {
-            if (!state.gradeTypes) state.gradeTypes = [];
-            state.gradeTypes.push(newType);
+            updatedTypes.push(newType);
         }
+        H.setSchoolGradeTypes(state, schoolId, updatedTypes);
         
         onUpdate(state);
         resetForm();
@@ -256,8 +285,8 @@ export const GradingSetup = ({ state, onUpdate }: { state: AppState, onUpdate: (
 
     const handleCellWeightBlur = (id: string, value: string) => {
         const numVal = parseFloat(value);
-        const min = state.gradingSystem?.minWeight || 1;
-        const max = state.gradingSystem?.maxWeight || 10;
+        const min = initialGradingSystem?.minWeight || 1;
+        const max = initialGradingSystem?.maxWeight || 10;
 
         if (isNaN(numVal) || numVal <= 0) {
             setWeightCellError({id, error: 'Должно быть > 0'});
@@ -269,11 +298,9 @@ export const GradingSetup = ({ state, onUpdate }: { state: AppState, onUpdate: (
         }
 
         setWeightCellError(null);
-        const idx = state.gradeTypes!.findIndex(gt => gt.id === id);
-        if (idx > -1) {
-            state.gradeTypes![idx].weight = numVal;
-            onUpdate(state);
-        }
+        const updatedTypes = currentGradeTypes.map(gt => gt.id === id ? { ...gt, weight: numVal } : gt);
+        H.setSchoolGradeTypes(state, schoolId, updatedTypes);
+        onUpdate(state);
     };
 
     return (
@@ -395,15 +422,15 @@ export const GradingSetup = ({ state, onUpdate }: { state: AppState, onUpdate: (
                             </div>
                             
                             {/* Conditionally render Weight inputs based on Global Setting */}
-                            {state.gradingSystem?.useWeights && (
+                            {initialGradingSystem?.useWeights && (
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Коэффициент</label>
                                     <div className="flex gap-3 items-start">
                                         <div className="flex-1">
                                             <Input 
                                                 type={isDynamic || isNoWeight ? 'text' : 'number'}
-                                                min={state.gradingSystem?.minWeight} 
-                                                max={state.gradingSystem?.maxWeight} 
+                                                min={initialGradingSystem?.minWeight} 
+                                                max={initialGradingSystem?.maxWeight} 
                                                 value={isDynamic || isNoWeight ? '-' : typeWeight} 
                                                 disabled={isDynamic || isNoWeight}
                                                 onChange={e => {
@@ -413,7 +440,7 @@ export const GradingSetup = ({ state, onUpdate }: { state: AppState, onUpdate: (
                                                         if (val !== '') {
                                                             const num = parseFloat(val);
                                                             if (num <= 0) setTypeError('Число должно быть > 0');
-                                                            else if (num < (state.gradingSystem?.minWeight || 1) || num > (state.gradingSystem?.maxWeight || 10)) setTypeError('Вне диапазона');
+                                                            else if (num < (initialGradingSystem?.minWeight || 1) || num > (initialGradingSystem?.maxWeight || 10)) setTypeError('Вне диапазона');
                                                             else setTypeError(null);
                                                         }
                                                     }
@@ -470,12 +497,12 @@ export const GradingSetup = ({ state, onUpdate }: { state: AppState, onUpdate: (
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                    {(state.gradeTypes || []).map(gt => (
+                                    {currentGradeTypes.map(gt => (
                                         <tr key={gt.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 group transition-colors">
                                             <td className="p-4 pl-6 font-bold text-slate-700 dark:text-slate-200">{gt.name}</td>
                                             <td className="p-4 text-center relative">
                                                 {/* CONDITIONAL RENDER: If global weights are OFF, just show dashes for everyone */}
-                                                {!state.gradingSystem?.useWeights ? (
+                                                {!initialGradingSystem?.useWeights ? (
                                                     <span className="font-bold text-slate-300">-</span>
                                                 ) : gt.isDynamicWeight ? (
                                                     <span className="inline-block text-[10px] uppercase font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-100 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400">Редак.</span>
@@ -504,7 +531,7 @@ export const GradingSetup = ({ state, onUpdate }: { state: AppState, onUpdate: (
                                             </td>
                                         </tr>
                                     ))}
-                                    {(!state.gradeTypes || state.gradeTypes.length === 0) && (
+                                    {currentGradeTypes.length === 0 && (
                                         <tr><td colSpan={3} className="p-8 text-center text-slate-400 italic">Нет созданных типов</td></tr>
                                     )}
                                 </tbody>
@@ -522,7 +549,7 @@ export const GradingSetup = ({ state, onUpdate }: { state: AppState, onUpdate: (
                         <h3 className="font-bold text-xl text-slate-800 dark:text-white font-heading">{t('grades_per_subject')}</h3>
                     </div>
                     <Select value={selectedClass} onChange={e => setSelectedClass(e.target.value)} className="w-40">
-                        {state.classes.map(c => <option key={`${c.class}_${c.letter}`} value={`${c.class}_${c.letter}`}>{c.class}{c.letter}</option>)}
+                        {schoolClasses.map(c => <option key={`${c.class}_${c.letter}`} value={`${c.class}_${c.letter}`}>{c.class}{c.letter}</option>)}
                     </Select>
                 </div>
 
@@ -541,10 +568,11 @@ export const GradingSetup = ({ state, onUpdate }: { state: AppState, onUpdate: (
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {state.subjects.map(subj => {
+                            {schoolSubjects.map(subj => {
+                                const targetClassKey = H.getSchoolClassKey(schoolId, selectedClass);
                                 const lessonsCount = getLessonsPerWeek(selectedClass, subj);
                                 const autoMin = lessonsCount > 3 ? 5 : (lessonsCount >= 1 ? 3 : 0);
-                                const req = state.subjectRequirements?.[selectedClass]?.[subj] || { type: 'auto', minGrades: autoMin };
+                                const req = state.subjectRequirements?.[targetClassKey]?.[subj] || state.subjectRequirements?.[selectedClass]?.[subj] || { type: 'auto', minGrades: autoMin };
                                 const isAuto = req.type === 'auto';
                                 const displayMin = isAuto ? autoMin : req.minGrades;
 

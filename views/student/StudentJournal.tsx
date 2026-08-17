@@ -28,7 +28,7 @@ export const StudentJournal = ({ state, user }: { state: AppState, user: User })
     const goCurrentJournalWeek = () => setJournalWeekStart(H.getStartOfWeek(new Date(Date.now() + (state.settings.systemTimeOffset || 0))));
     
     const journalDates = journalDays.map(d => d.date);
-    const journalVacation = H.getVacationForWeek(journalWeekStart, state.scheduleSettings, journalDates);
+    const journalVacation = H.getVacationForWeek(journalWeekStart, scheduleSettings, journalDates);
 
     // Helper to get weight dynamically
     const getEffectiveWeight = (g: Grade) => {
@@ -112,8 +112,8 @@ export const StudentJournal = ({ state, user }: { state: AppState, user: User })
             <div className="space-y-6">
               {journalDays.map(day => {
                   const dayDate = day.date;
-                  const holidayInfo = H.isHoliday(dayDate, state.scheduleSettings);
-                  const vacForDay = H.getVacationForDay(dayDate, state.scheduleSettings);
+                  const holidayInfo = H.isHoliday(dayDate, scheduleSettings);
+                  const vacForDay = H.getVacationForDay(dayDate, scheduleSettings);
                   const isVacationDay = !!vacForDay;
                   const isHolidayDay = !!holidayInfo;
                   let headerClass = 'bg-slate-50 border-slate-200 text-slate-700 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200';

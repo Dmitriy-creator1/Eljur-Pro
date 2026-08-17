@@ -20,6 +20,7 @@ export const ScheduleEditor = ({ state, onUpdate, user }: { state: AppState, onU
   
   const lang = state.settings.language || 'ru';
   const t = (k: string) => H.t(k, lang);
+  const scheduleSettings = H.getSchoolScheduleSettings(state, user.schoolId);
   
   const systemNow = new Date(Date.now() + (state.settings.systemTimeOffset || 0));
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(H.getStartOfWeek(systemNow));
@@ -28,13 +29,25 @@ export const ScheduleEditor = ({ state, onUpdate, user }: { state: AppState, onU
       setCurrentWeekStart(H.getStartOfWeek(new Date(Date.now() + (state.settings.systemTimeOffset || 0))));
   }, [state.settings.systemTimeOffset]);
 
+  useEffect(() => {
+      if (schoolClasses.length > 0) {
+          const activeExists = schoolClasses.some(c => `${c.class}_${c.letter}` === activeClass);
+          if (!activeExists) {
+              setActiveClass(`${schoolClasses[0].class}_${schoolClasses[0].letter}`);
+          }
+      } else {
+          setActiveClass('');
+      }
+  }, [schoolClasses, activeClass]);
+
   const todayIso = H.dateToIso(systemNow);
   const isDayInPast = (dateStr: string) => dateStr < todayIso;
   const currentWeekEnd = H.addDays(currentWeekStart, 6);
   const isPastWeek = H.dateToIso(currentWeekEnd) < todayIso;
 
-  if (activeClass && !state.schedules[activeClass]) { state.schedules[activeClass] = {}; }
-  const schedule = activeClass ? state.schedules[activeClass] : {};
+  const targetScheduleKey = activeClass ? H.getSchoolClassKey(user.schoolId, activeClass) : '';
+  if (targetScheduleKey && !state.schedules[targetScheduleKey]) { state.schedules[targetScheduleKey] = {}; }
+  const schedule = targetScheduleKey ? (state.schedules[targetScheduleKey] || {}) : {};
   const classGroups = state.studentGroups.filter(g => g.classId === activeClass);
   const visibleDayKeys = Object.keys(schedule).filter(key => H.isDateInWeek(schedule[key].date, currentWeekStart)).sort((a,b) => schedule[a].date.localeCompare(schedule[b].date));
   
@@ -43,7 +56,7 @@ export const ScheduleEditor = ({ state, onUpdate, user }: { state: AppState, onU
   const goCurrentWeek = () => setCurrentWeekStart(H.getStartOfWeek(new Date(Date.now() + (state.settings.systemTimeOffset || 0))));
 
   let canAddMoreDaysToWeek = false;
-  if (visibleDayKeys.length < 7 && !isPastWeek) {
+  if (visibleDayKeys.length < 7 && !isPastWeek && targetScheduleKey) {
       let baseDate: Date;
       if (visibleDayKeys.length > 0) {
           const lastKey = visibleDayKeys[visibleDayKeys.length - 1];
@@ -52,7 +65,7 @@ export const ScheduleEditor = ({ state, onUpdate, user }: { state: AppState, onU
           baseDate = new Date(currentWeekStart);
           baseDate.setDate(baseDate.getDate() - 1);
       }
-      const nextPossibleDate = H.getNextWorkingDate(baseDate, state.scheduleSettings.skippedWeekDays || []);
+      const nextPossibleDate = H.getNextWorkingDate(baseDate, scheduleSettings.skippedWeekDays || []);
       if (H.isDateInWeek(H.dateToIso(nextPossibleDate), currentWeekStart)) { canAddMoreDaysToWeek = true; }
   }
 
@@ -82,9 +95,10 @@ export const ScheduleEditor = ({ state, onUpdate, user }: { state: AppState, onU
     if (selectedClassesForCopy.length === 0) return alert(t('select_classes'));
     const prevWeekStart = H.addDays(currentWeekStart, -7);
     let updated = false;
-    selectedClassesForCopy.forEach(classKey => {
-        if (!state.schedules[classKey]) state.schedules[classKey] = {};
-        const classSchedule = state.schedules[classKey];
+    selectedClassesForCopy.forEach(clsKey => {
+        const scopedKey = H.getSchoolClassKey(user.schoolId, clsKey);
+        if (!state.schedules[scopedKey]) state.schedules[scopedKey] = {};
+        const classSchedule = state.schedules[scopedKey];
         const prevWeekKeys = Object.keys(classSchedule).filter(key => H.isDateInWeek(classSchedule[key].date, prevWeekStart));
         if (prevWeekKeys.length === 0) return;
         prevWeekKeys.forEach(prevKey => {
@@ -96,7 +110,7 @@ export const ScheduleEditor = ({ state, onUpdate, user }: { state: AppState, onU
             if (!exists) {
                 const newId = H.uid('day');
                 const newLessons = prevDay.lessons.map(l => ({ ...l, id: H.uid('l'), subgroups: l.subgroups ? l.subgroups.map(sg => ({...sg})) : undefined }));
-                state.schedules[classKey][newId] = { id: newId, title: prevDay.title, date: newDateStr, lessons: newLessons, showGroups: prevDay.showGroups };
+                state.schedules[scopedKey][newId] = { id: newId, title: prevDay.title, date: newDateStr, lessons: newLessons, showGroups: prevDay.showGroups };
                 updated = true;
             }
         });
@@ -105,9 +119,9 @@ export const ScheduleEditor = ({ state, onUpdate, user }: { state: AppState, onU
   };
 
   const copyScheduleForCurrentClass = () => {
-      const classKey = activeClass;
-      if (!state.schedules[classKey]) state.schedules[classKey] = {};
-      const classSchedule = state.schedules[classKey];
+      if (!targetScheduleKey) return;
+      if (!state.schedules[targetScheduleKey]) state.schedules[targetScheduleKey] = {};
+      const classSchedule = state.schedules[targetScheduleKey];
       const prevWeekStart = H.addDays(currentWeekStart, -7);
       const prevWeekKeys = Object.keys(classSchedule).filter(key => H.isDateInWeek(classSchedule[key].date, prevWeekStart));
       if (prevWeekKeys.length === 0) { alert(t('confirm_copy_no_prev')); setConfirmCopyModal(false); return; }
@@ -121,7 +135,7 @@ export const ScheduleEditor = ({ state, onUpdate, user }: { state: AppState, onU
             if (!exists) {
                 const newId = H.uid('day');
                 const newLessons = prevDay.lessons.map(l => ({ ...l, id: H.uid('l'), subgroups: l.subgroups ? l.subgroups.map(sg => ({...sg})) : undefined }));
-                state.schedules[classKey][newId] = { id: newId, title: prevDay.title, date: newDateStr, lessons: newLessons, showGroups: prevDay.showGroups };
+                state.schedules[targetScheduleKey][newId] = { id: newId, title: prevDay.title, date: newDateStr, lessons: newLessons, showGroups: prevDay.showGroups };
                 updated = true;
             }
       });
@@ -129,14 +143,17 @@ export const ScheduleEditor = ({ state, onUpdate, user }: { state: AppState, onU
   };
   
   const addDaysWithSettings = () => {
-    if (isPastWeek) return;
-    const settings = state.scheduleSettings;
+    if (isPastWeek || !targetScheduleKey) return;
+    const settings = H.getSchoolScheduleSettings(state, user.schoolId);
     const batchSize = settings.daysToAddBatch || 1;
     const skippedDays = settings.skippedWeekDays || [];
+    if (!state.schedules[targetScheduleKey]) state.schedules[targetScheduleKey] = {};
+    const curSchedule = state.schedules[targetScheduleKey];
+    const curVisibleKeys = Object.keys(curSchedule).filter(key => H.isDateInWeek(curSchedule[key].date, currentWeekStart)).sort((a,b) => curSchedule[a].date.localeCompare(curSchedule[b].date));
     let baseDate: Date;
-    if (visibleDayKeys.length > 0) {
-        const lastKey = visibleDayKeys[visibleDayKeys.length - 1];
-        const lastDateStr = schedule[lastKey].date;
+    if (curVisibleKeys.length > 0) {
+        const lastKey = curVisibleKeys[curVisibleKeys.length - 1];
+        const lastDateStr = curSchedule[lastKey].date;
         baseDate = new Date(lastDateStr);
     } else {
         baseDate = new Date(currentWeekStart);
@@ -148,25 +165,45 @@ export const ScheduleEditor = ({ state, onUpdate, user }: { state: AppState, onU
         nextDate = H.getNextWorkingDate(nextDate, skippedDays);
         if (!H.isDateInWeek(H.dateToIso(nextDate), currentWeekStart)) { break; }
         const dateStr = H.dateToIso(nextDate);
-        const exists = Object.values(schedule).find(d => d.date === dateStr);
+        const exists = Object.values(curSchedule).find(d => d.date === dateStr);
         if (!exists) {
             const dayName = H.getDayOfWeek(dateStr, lang);
             const newId = H.uid('day');
             const autoLessons = H.generateDefaultLessons(); 
-            state.schedules[activeClass][newId] = { id: newId, title: dayName, date: dateStr, lessons: autoLessons };
+            curSchedule[newId] = { id: newId, title: dayName, date: dateStr, lessons: autoLessons };
             addedCount++;
         }
     }
     if (addedCount > 0) onUpdate(state);
   };
 
-  const deleteDay = (dayId: string) => { if (isDayInPast(schedule[dayId].date)) return; if (!window.confirm(t('delete_day_confirm'))) return; delete state.schedules[activeClass][dayId]; onUpdate(state); };
-  const updateDayField = (dayId: string, field: string, val: any) => { if (isDayInPast(schedule[dayId].date)) return; (state.schedules[activeClass][dayId] as any)[field] = val; if (field === 'date') { state.schedules[activeClass][dayId].title = H.getDayOfWeek(val, lang); } onUpdate(state); };
-  const updateLesson = (dayId: string, lIndex: number, field: keyof Lesson, val: string) => { if (isDayInPast(schedule[dayId].date)) return; (state.schedules[activeClass][dayId].lessons[lIndex] as any)[field] = val; onUpdate(state); };
+  const deleteDay = (dayId: string) => { 
+    if (!targetScheduleKey || !state.schedules[targetScheduleKey]?.[dayId]) return;
+    if (isDayInPast(state.schedules[targetScheduleKey][dayId].date)) return; 
+    if (!window.confirm(t('delete_day_confirm'))) return; 
+    delete state.schedules[targetScheduleKey][dayId]; 
+    onUpdate(state); 
+  };
+  const updateDayField = (dayId: string, field: string, val: any) => { 
+    if (!targetScheduleKey || !state.schedules[targetScheduleKey]?.[dayId]) return;
+    if (isDayInPast(state.schedules[targetScheduleKey][dayId].date)) return; 
+    (state.schedules[targetScheduleKey][dayId] as any)[field] = val; 
+    if (field === 'date') { 
+        state.schedules[targetScheduleKey][dayId].title = H.getDayOfWeek(val, lang); 
+    } 
+    onUpdate(state); 
+  };
+  const updateLesson = (dayId: string, lIndex: number, field: keyof Lesson, val: string) => { 
+    if (!targetScheduleKey || !state.schedules[targetScheduleKey]?.[dayId]?.lessons?.[lIndex]) return;
+    if (isDayInPast(state.schedules[targetScheduleKey][dayId].date)) return; 
+    (state.schedules[targetScheduleKey][dayId].lessons[lIndex] as any)[field] = val; 
+    onUpdate(state); 
+  };
   
   const toggleSubgroups = (dayId: string, lIndex: number) => { 
-      if (isDayInPast(schedule[dayId].date)) return; 
-      const lesson = state.schedules[activeClass][dayId].lessons[lIndex]; 
+      if (!targetScheduleKey || !state.schedules[targetScheduleKey]?.[dayId]?.lessons?.[lIndex]) return;
+      if (isDayInPast(state.schedules[targetScheduleKey][dayId].date)) return; 
+      const lesson = state.schedules[targetScheduleKey][dayId].lessons[lIndex]; 
       if (lesson.subgroups && lesson.subgroups.length > 0) { 
           if (confirm(t('confirm_merge_groups'))) { lesson.subgroups = undefined; onUpdate(state); } 
       } else { 
@@ -177,8 +214,9 @@ export const ScheduleEditor = ({ state, onUpdate, user }: { state: AppState, onU
   };
 
   const updateSubgroup = (dayId: string, lIndex: number, groupIdx: number, field: keyof any, val: string) => {
-      if (isDayInPast(schedule[dayId].date)) return;
-      const day = state.schedules[activeClass][dayId];
+      if (!targetScheduleKey || !state.schedules[targetScheduleKey]?.[dayId]?.lessons?.[lIndex]) return;
+      if (isDayInPast(state.schedules[targetScheduleKey][dayId].date)) return;
+      const day = state.schedules[targetScheduleKey][dayId];
       const lesson = day.lessons[lIndex];
       if (lesson.subgroups && lesson.subgroups[groupIdx]) {
           (lesson.subgroups[groupIdx] as any)[field] = val;
@@ -196,13 +234,29 @@ export const ScheduleEditor = ({ state, onUpdate, user }: { state: AppState, onU
           onUpdate(state);
       }
   };
-  const addLesson = (dayId: string) => { if (isDayInPast(schedule[dayId].date)) return; const lessons = state.schedules[activeClass][dayId].lessons; const lastLesson = lessons[lessons.length - 1]; const prevTime = lastLesson ? lastLesson.timeRange : '08:30 - 09:15'; const nextTime = lastLesson ? H.calculateNextTimeRange(prevTime) : '08:30 - 09:15'; lessons.push({ id: H.uid('l'), timeRange: nextTime, lesson: '', teacherId: '', room: '' }); onUpdate(state); };
-  const deleteLesson = (dayId: string, lIdx: number) => { if (isDayInPast(schedule[dayId].date)) return; if (!window.confirm(t('confirm_delete'))) return; state.schedules[activeClass][dayId].lessons.splice(lIdx, 1); onUpdate(state); };
+  const addLesson = (dayId: string) => { 
+    if (!targetScheduleKey || !state.schedules[targetScheduleKey]?.[dayId]) return;
+    if (isDayInPast(state.schedules[targetScheduleKey][dayId].date)) return; 
+    const lessons = state.schedules[targetScheduleKey][dayId].lessons; 
+    const lastLesson = lessons[lessons.length - 1]; 
+    const prevTime = lastLesson ? lastLesson.timeRange : '08:30 - 09:15'; 
+    const nextTime = lastLesson ? H.calculateNextTimeRange(prevTime) : '08:30 - 09:15'; 
+    lessons.push({ id: H.uid('l'), timeRange: nextTime, lesson: '', teacherId: '', room: '' }); 
+    onUpdate(state); 
+  };
+  const deleteLesson = (dayId: string, lIdx: number) => { 
+    if (!targetScheduleKey || !state.schedules[targetScheduleKey]?.[dayId]?.lessons) return;
+    if (isDayInPast(state.schedules[targetScheduleKey][dayId].date)) return; 
+    if (!window.confirm(t('confirm_delete'))) return; 
+    state.schedules[targetScheduleKey][dayId].lessons.splice(lIdx, 1); 
+    onUpdate(state); 
+  };
   const handleAddSubject = () => { if (newSubj && !state.subjects.includes(newSubj)) { state.subjects.push(newSubj); onUpdate(state); setNewSubj(''); } };
   const deleteSubject = (s: string) => { if(!window.confirm(`${t('confirm_delete')} "${s}"?`)) return; state.subjects = state.subjects.filter(sub => sub !== s); onUpdate(state); };
   
   const openTeacherLabelModal = (dayId: string, lIndex: number, sgIdx: number | null) => {
-      const day = state.schedules[activeClass][dayId];
+      if (!targetScheduleKey || !state.schedules[targetScheduleKey]?.[dayId]?.lessons?.[lIndex]) return;
+      const day = state.schedules[targetScheduleKey][dayId];
       const lesson = day.lessons[lIndex];
       let currentLabel = '';
       let currentCanGrade = false;
@@ -218,7 +272,8 @@ export const ScheduleEditor = ({ state, onUpdate, user }: { state: AppState, onU
 
   const saveTeacherLabel = () => {
       const { dayId, lIndex, sgIdx, text, canGrade } = labelModal;
-      const day = state.schedules[activeClass][dayId];
+      if (!targetScheduleKey || !state.schedules[targetScheduleKey]?.[dayId]?.lessons?.[lIndex]) return;
+      const day = state.schedules[targetScheduleKey][dayId];
       const lesson = day.lessons[lIndex];
       if (sgIdx !== null && lesson.subgroups && lesson.subgroups[sgIdx]) {
           lesson.subgroups[sgIdx].teacherLabel = text;
@@ -266,7 +321,7 @@ export const ScheduleEditor = ({ state, onUpdate, user }: { state: AppState, onU
         <div className="w-full xl:w-64">
             <label className="block text-sm font-bold text-slate-700 mb-2 dark:text-slate-300">{t('choose_class')}</label>
             <Select value={activeClass} onChange={e => setActiveClass(e.target.value)} className="h-[42px]">
-                 {state.classes.map(c => <option key={`${c.class}_${c.letter}`} value={`${c.class}_${c.letter}`}>{c.class}{c.letter}</option>)}
+                 {schoolClasses.map(c => <option key={`${c.class}_${c.letter}`} value={`${c.class}_${c.letter}`}>{c.class}{c.letter}</option>)}
             </Select>
         </div>
         <div className="flex-1 flex items-end justify-center bg-slate-50 p-1 rounded-xl border border-slate-200 dark:bg-slate-800 dark:border-slate-700 h-[42px]">
@@ -359,8 +414,8 @@ export const ScheduleEditor = ({ state, onUpdate, user }: { state: AppState, onU
            )
         })}
       </div>
-      {canAddMoreDaysToWeek && !isPastWeek && <div className="flex justify-center no-print"><Button variant="primary" className="w-full py-4 text-lg border-2 border-blue-200 border-dashed bg-blue-50 text-blue-700 hover:bg-blue-100 shadow-none dark:bg-slate-900 dark:border-blue-900 dark:text-blue-400 dark:hover:bg-slate-800" onClick={addDaysWithSettings}>+ {t('add_days')} ({state.scheduleSettings.daysToAddBatch} {t('pcs')})</Button></div>}
-      <Modal isOpen={showBatchCopyModal} onClose={() => setShowBatchCopyModal(false)} title={t('copy_schedule_title')}><div className="space-y-4"><p className="text-sm text-slate-600 dark:text-slate-300">{t('copy_schedule_body')}</p><div className="max-h-60 overflow-y-auto border border-slate-200 rounded-lg p-2 dark:border-slate-700"><div className="flex justify-between mb-2 px-2"><button onClick={() => setSelectedClassesForCopy(state.classes.map(c => `${c.class}_${c.letter}`))} className="text-xs text-blue-600 font-bold hover:underline">{t('select_all')}</button><button onClick={() => setSelectedClassesForCopy([])} className="text-xs text-slate-400 hover:text-slate-600">{t('reset')}</button></div>{state.classes.map(c => { const key = `${c.class}_${c.letter}`; return (<label key={key} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded cursor-pointer dark:hover:bg-slate-800"><input type="checkbox" className="rounded text-blue-600 focus:ring-blue-500" checked={selectedClassesForCopy.includes(key)} onChange={(e) => { if (e.target.checked) setSelectedClassesForCopy([...selectedClassesForCopy, key]); else setSelectedClassesForCopy(selectedClassesForCopy.filter(k => k !== key)); }} /><span className="font-medium text-slate-700 dark:text-slate-200">{c.class}{c.letter}</span></label>); })}</div><div className="flex gap-2 justify-end"><Button variant="ghost" onClick={() => setShowBatchCopyModal(false)}>{t('cancel')}</Button><Button variant="primary" onClick={copyScheduleBatch}>{t('copy')}</Button></div></div></Modal>
+      {canAddMoreDaysToWeek && !isPastWeek && <div className="flex justify-center no-print"><Button variant="primary" className="w-full py-4 text-lg border-2 border-blue-200 border-dashed bg-blue-50 text-blue-700 hover:bg-blue-100 shadow-none dark:bg-slate-900 dark:border-blue-900 dark:text-blue-400 dark:hover:bg-slate-800" onClick={addDaysWithSettings}>+ {t('add_days')} ({scheduleSettings.daysToAddBatch} {t('pcs')})</Button></div>}
+      <Modal isOpen={showBatchCopyModal} onClose={() => setShowBatchCopyModal(false)} title={t('copy_schedule_title')}><div className="space-y-4"><p className="text-sm text-slate-600 dark:text-slate-300">{t('copy_schedule_body')}</p><div className="max-h-60 overflow-y-auto border border-slate-200 rounded-lg p-2 dark:border-slate-700"><div className="flex justify-between mb-2 px-2"><button onClick={() => setSelectedClassesForCopy(schoolClasses.map(c => `${c.class}_${c.letter}`))} className="text-xs text-blue-600 font-bold hover:underline">{t('select_all')}</button><button onClick={() => setSelectedClassesForCopy([])} className="text-xs text-slate-400 hover:text-slate-600">{t('reset')}</button></div>{schoolClasses.map(c => { const key = `${c.class}_${c.letter}`; return (<label key={key} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded cursor-pointer dark:hover:bg-slate-800"><input type="checkbox" className="rounded text-blue-600 focus:ring-blue-500" checked={selectedClassesForCopy.includes(key)} onChange={(e) => { if (e.target.checked) setSelectedClassesForCopy([...selectedClassesForCopy, key]); else setSelectedClassesForCopy(selectedClassesForCopy.filter(k => k !== key)); }} /><span className="font-medium text-slate-700 dark:text-slate-200">{c.class}{c.letter}</span></label>); })}</div><div className="flex gap-2 justify-end"><Button variant="ghost" onClick={() => setShowBatchCopyModal(false)}>{t('cancel')}</Button><Button variant="primary" onClick={copyScheduleBatch}>{t('copy')}</Button></div></div></Modal>
       <Modal isOpen={confirmCopyModal} onClose={() => setConfirmCopyModal(false)} title={t('copy_schedule_short')}><div className="space-y-6"><div className="bg-blue-50 text-blue-800 p-4 rounded-xl border border-blue-100 flex items-start gap-3"><AlertCircle className="flex-shrink-0 mt-0.5" size={20}/><div><p className="font-bold mb-1">{t('copy_from_prev_q')}</p><p className="text-sm opacity-90">{t('copy_warning_msg').replace('%s', activeClass.replace('_', ''))}</p></div></div><div className="flex gap-3 justify-end"><Button variant="ghost" onClick={() => setConfirmCopyModal(false)}>{t('cancel')}</Button><Button variant="primary" onClick={copyScheduleForCurrentClass}>{t('confirm')}</Button></div></div></Modal>
       <Modal isOpen={labelModal.isOpen} onClose={() => setLabelModal({...labelModal, isOpen: false})} title={t('add_label_title')}><div className="space-y-4"><p className="text-sm text-slate-600 dark:text-slate-300">{t('add_label_desc')}</p><div><label className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 block">{t('label_text')}</label><Input autoFocus value={labelModal.text} onChange={e => setLabelModal({...labelModal, text: e.target.value})} placeholder={t('label_placeholder')} /></div><div><label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${labelModal.canGrade ? 'bg-blue-50 border-blue-300 dark:bg-blue-900/20 dark:border-blue-700' : 'bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-700'}`}><div className="pt-0.5"><input type="checkbox" checked={labelModal.canGrade} onChange={e => setLabelModal({...labelModal, canGrade: e.target.checked})} className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500 border-gray-300" /></div><div><span className={`block text-sm font-bold mb-0.5 ${labelModal.canGrade ? 'text-blue-900 dark:text-blue-300' : 'text-slate-700 dark:text-slate-300'}`}>{t('substitution_confirm')}</span><span className={`text-xs font-medium ${labelModal.canGrade ? 'text-blue-700 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400'}`}>{labelModal.canGrade ? t('access_granted') : t('access_denied')}</span></div></label></div><div className="flex gap-2 justify-end pt-2"><Button variant="ghost" onClick={() => setLabelModal({...labelModal, isOpen: false})}>{t('cancel')}</Button><Button variant="primary" onClick={saveTeacherLabel}>{t('save')}</Button></div></div></Modal>
       <Modal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} title={t('setup_schedule')}><div className="space-y-6"><div><label className="block text-sm font-bold text-slate-700 mb-2 dark:text-slate-300">{t('days_batch')}</label><Input type="number" min="1" max="7" value={state.scheduleSettings.daysToAddBatch} onChange={e => { state.scheduleSettings.daysToAddBatch = parseInt(e.target.value); onUpdate(state); }} /></div><div><label className="block text-sm font-bold text-slate-700 mb-2 dark:text-slate-300">{t('skip_days')}</label><div className="flex flex-wrap gap-2">{daysOfWeek.map((day, idx) => { const isSkipped = state.scheduleSettings.skippedWeekDays.includes(idx); return (<button key={idx} onClick={() => { const current = state.scheduleSettings.skippedWeekDays; if (isSkipped) { state.scheduleSettings.skippedWeekDays = current.filter(d => d !== idx); } else { state.scheduleSettings.skippedWeekDays = [...current, idx]; } onUpdate(state); }} className={`px-3 py-2 rounded-lg text-sm font-bold transition-all ${isSkipped ? 'bg-red-100 text-red-600 border border-red-200' : 'bg-green-50 text-green-700 border border-green-200'}`}>{day} {isSkipped ? t('skipped_label') : ''}</button>); })}</div></div><div className="border-t border-slate-200 pt-4 dark:border-slate-700"><h4 className="font-bold text-slate-800 mb-4 dark:text-white">{t('quarter_dates')}</h4><div className="grid grid-cols-1 gap-3">{['Q1', 'Q2', 'Q3', 'Q4'].map((q) => { const def = state.scheduleSettings.quarterDefinitions?.[q] || { start: '', end: '' }; return (<div key={q} className="flex items-center gap-2 text-sm"><span className="w-8 font-bold text-slate-600 dark:text-slate-400">{q}</span><div className="flex-1 flex gap-2"><Input type="date" value={def.start} onChange={e => handleQuarterDateChange(q, 'start', e.target.value)} /><span className="text-slate-400 self-center">—</span><Input type="date" value={def.end} onChange={e => handleQuarterDateChange(q, 'end', e.target.value)} /></div></div>); })}</div></div><div className="border-t border-slate-200 pt-4 dark:border-slate-700"><h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2 dark:text-white"><CalendarRange size={18}/> {t('holidays_vacations')}</h4><div className="mb-6"><label className="text-xs font-bold uppercase text-slate-500 mb-2 block">{t('holidays_daily')}</label><div className="flex gap-2 mb-2 items-end"><div className="w-1/2"><label className="text-[10px] text-slate-400">{t('select_date')}</label><Input type="date" id="newHolidayDate" className="h-[42px]" /></div><div className="w-1/2"><label className="text-[10px] text-slate-400">{t('holiday_name')}</label><Input type="text" id="newHolidayTitle" placeholder={t('example_holiday')} className="h-[42px]" /></div></div><Button size="sm" className="w-full mb-3" onClick={() => { const dateEl = document.getElementById('newHolidayDate') as HTMLInputElement; const titleEl = document.getElementById('newHolidayTitle') as HTMLInputElement; if (dateEl.value && !state.scheduleSettings.holidays.find(h => h.date === dateEl.value)) { state.scheduleSettings.holidays.push({ date: dateEl.value, title: titleEl.value || 'Выходной' }); state.scheduleSettings.holidays.sort((a,b) => a.date.localeCompare(b.date)); onUpdate(state); titleEl.value = ''; } }}>{t('add_holiday')}</Button><div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">{state.scheduleSettings.holidays.map(h => (<span key={h.date} className="bg-red-50 text-red-700 px-2 py-1 rounded text-xs font-bold border border-red-100 flex items-center gap-1 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400">{H.formatDateDDMMYYYY(h.date)}: {h.title} <button onClick={() => { state.scheduleSettings.holidays = state.scheduleSettings.holidays.filter(x => x.date !== h.date); onUpdate(state); }}>&times;</button></span>))}</div></div><div><label className="text-xs font-bold uppercase text-slate-500 mb-2 block">{t('vacation_periods')}</label><div className="grid grid-cols-3 gap-2 mb-2 items-end"><div><label className="text-[10px] text-slate-400">{t('from_date')}</label><Input type="date" id="vacStart" className="h-[42px]" /></div><div><label className="text-[10px] text-slate-400">{t('to_date')}</label><Input type="date" id="vacEnd" className="h-[42px]" /></div><div><label className="text-[10px] text-slate-400">{t('title')}</label><Input id="vacTitle" placeholder={t('example_vacation')} className="h-[42px]" /></div></div><Button size="sm" className="w-full mb-3" onClick={() => { const start = (document.getElementById('vacStart') as HTMLInputElement).value; const end = (document.getElementById('vacEnd') as HTMLInputElement).value; const title = (document.getElementById('vacTitle') as HTMLInputElement).value || t('example_vacation'); if (start && end) { state.scheduleSettings.vacations.push({ id: H.uid('vac'), start, end, title }); onUpdate(state); } }}>{t('add_period')}</Button><div className="space-y-2">{state.scheduleSettings.vacations.map(v => (<div key={v.id} className="flex justify-between items-center bg-green-50 p-2 rounded border border-green-100 text-xs dark:bg-green-900/20 dark:border-green-800"><span className="font-bold text-green-800 dark:text-green-300">{v.title}</span><span className="text-green-600 dark:text-green-400">{H.formatDateDDMMYYYY(v.start)} — {H.formatDateDDMMYYYY(v.end)}</span><button onClick={() => { state.scheduleSettings.vacations = state.scheduleSettings.vacations.filter(x => x.id !== v.id); onUpdate(state); }} className="text-red-500 font-bold">&times;</button></div>))}</div></div></div></div></Modal>
