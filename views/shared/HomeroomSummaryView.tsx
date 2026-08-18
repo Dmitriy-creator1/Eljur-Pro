@@ -1,8 +1,22 @@
 import React, { useState, useMemo } from 'react';
 import { AppState, User, Grade, FinalGradeEntry } from '../../types';
 import * as H from '../../utils/helpers';
-import { Button, Select, Card, Modal } from '../../components/ui';
-import { Printer, Users, Award, TrendingUp, Search, Eye, AlertCircle, BookOpen, CheckCircle, ChevronRight, X } from 'lucide-react';
+import { Button, Card, Modal } from '../../components/ui';
+import { 
+  Printer, 
+  Users, 
+  Award, 
+  TrendingUp, 
+  Search, 
+  BookOpen, 
+  CheckCircle2, 
+  ChevronRight, 
+  GraduationCap, 
+  UserCheck, 
+  Layers, 
+  AlertCircle,
+  FileSpreadsheet
+} from 'lucide-react';
 
 interface Props {
   state: AppState;
@@ -17,8 +31,8 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
   const schoolClasses = H.getSchoolClasses(state, user.schoolId);
   const leadingClasses = H.getUserLeadingClasses(state, user.schoolId, user.id);
 
-  // If user is director, allow viewing all classes or filter to leading
-  const isDirector = user.role === 'director' || user.role === 'creator';
+  // If user is director or creator, allow viewing all classes or filter to leading
+  const isDirector = user.role === 'director' || (user.role as string) === 'creator';
   const availableClasses = isDirector && leadingClasses.length === 0 ? schoolClasses : (leadingClasses.length > 0 ? leadingClasses : schoolClasses);
 
   const [selectedClassKey, setSelectedClassKey] = useState<string>(() => {
@@ -214,33 +228,35 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       {/* Header card with leading class switchers & summary */}
-      <Card className="p-6 md:p-8 bg-gradient-to-r from-blue-900 to-indigo-900 text-white shadow-xl relative overflow-hidden border-none">
-        <div className="absolute right-0 top-0 translate-x-8 -translate-y-8 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+      <Card className="p-6 md:p-8 bg-slate-900 text-white shadow-lg border border-slate-800 rounded-2xl relative overflow-hidden">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="px-3 py-1 bg-amber-400/20 text-amber-300 rounded-full text-xs font-bold uppercase tracking-wider border border-amber-400/30 flex items-center gap-1.5">
-                👑 {lang === 'ru' ? 'Классное руководство' : 'Class Leadership'}
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <span className="px-3 py-1 bg-blue-500/10 text-blue-300 rounded-lg text-xs font-bold uppercase tracking-wider border border-blue-500/20 flex items-center gap-1.5">
+                <GraduationCap size={14} className="text-blue-400" />
+                <span>{lang === 'ru' ? 'Классное руководство' : 'Class Leadership'}</span>
               </span>
               {leadingClasses.some(c => `${c.class}_${c.letter}` === selectedClassKey) && (
-                <span className="px-2.5 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-xs font-bold border border-emerald-500/30">
-                  {lang === 'ru' ? 'Ваш класс' : 'Your Class'}
+                <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-300 rounded-lg text-xs font-bold border border-emerald-500/20 flex items-center gap-1">
+                  <UserCheck size={13} className="text-emerald-400" />
+                  <span>{lang === 'ru' ? 'Ваш класс' : 'Your Class'}</span>
                 </span>
               )}
             </div>
-            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">
+
+            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white font-heading">
               {lang === 'ru' ? `Успеваемость класса ${selectedClassNum}${selectedClassLetter}` : `Class ${selectedClassNum}${selectedClassLetter} Performance`}
             </h2>
-            <p className="text-blue-200 text-sm mt-1">
-              {lang === 'ru' ? 'Классный руководитель: ' : 'Class Teacher: '}
-              <span className="font-semibold text-white">
-                {classHeadmaster ? classHeadmaster.fio : (lang === 'ru' ? 'Не назначен' : 'Not assigned')}
+
+            <div className="text-slate-300 text-xs sm:text-sm mt-2 flex flex-wrap items-center gap-2">
+              <span className="text-slate-400">{lang === 'ru' ? 'Классный руководитель:' : 'Class Teacher:'}</span>
+              <span className="font-semibold text-white bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700">
+                {classHeadmaster ? `${classHeadmaster.fio} (${classHeadmaster.role === 'director' ? t('director') : (classHeadmaster.customRole || t(classHeadmaster.role))})` : (lang === 'ru' ? 'Не назначен' : 'Not assigned')}
               </span>
-            </p>
+            </div>
           </div>
 
-          {/* Class Switcher Pill Buttons */}
+          {/* Class Switcher Buttons */}
           <div className="flex flex-wrap items-center gap-2">
             {availableClasses.map(c => {
               const key = `${c.class}_${c.letter}`;
@@ -252,12 +268,12 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
                   onClick={() => setSelectedClassKey(key)}
                   className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 flex items-center gap-2 ${
                     isSelected
-                      ? 'bg-white text-blue-900 shadow-lg shadow-black/20 scale-105'
-                      : 'bg-white/10 hover:bg-white/20 text-white backdrop-blur-sm border border-white/10'
+                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 border border-blue-500'
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
                   }`}
                 >
                   <span>{c.class}{c.letter}</span>
-                  {isMyClass && <span className="text-xs">👑</span>}
+                  {isMyClass && <UserCheck size={13} className="text-blue-200" />}
                 </button>
               );
             })}
@@ -265,45 +281,54 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
               variant="secondary"
               size="sm"
               onClick={() => window.print()}
-              className="bg-white/10 hover:bg-white/20 text-white border-white/20 ml-2 no-print"
+              className="bg-slate-800 hover:bg-slate-700 text-white border-slate-700 ml-1 no-print"
             >
-              <Printer size={16} className="mr-1.5" />
+              <Printer size={15} className="mr-1.5" />
               {t('print')}
             </Button>
           </div>
         </div>
 
         {/* Quick Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mt-6 pt-6 border-t border-white/10">
-          <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm">
-            <div className="text-xs text-blue-200 flex items-center gap-1.5 font-medium">
-              <Users size={14} /> {lang === 'ru' ? 'Учеников' : 'Students'}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mt-6 pt-6 border-t border-slate-800">
+          <div className="bg-slate-800/60 rounded-xl p-3 border border-slate-700/60">
+            <div className="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
+              <Users size={14} className="text-blue-400" />
+              <span>{lang === 'ru' ? 'Учеников' : 'Students'}</span>
             </div>
-            <div className="text-xl font-black mt-0.5">{classStats.total}</div>
+            <div className="text-xl font-bold mt-1 text-white">{classStats.total}</div>
           </div>
-          <div className="bg-white/10 rounded-xl p-3 backdrop-blur-sm">
-            <div className="text-xs text-blue-200 flex items-center gap-1.5 font-medium">
-              <TrendingUp size={14} /> {lang === 'ru' ? 'Средний балл' : 'Average GPA'}
+
+          <div className="bg-slate-800/60 rounded-xl p-3 border border-slate-700/60">
+            <div className="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
+              <TrendingUp size={14} className="text-amber-400" />
+              <span>{lang === 'ru' ? 'Средний балл' : 'Average GPA'}</span>
             </div>
-            <div className="text-xl font-black mt-0.5 text-amber-300">{classStats.avgGpa}</div>
+            <div className="text-xl font-bold mt-1 text-amber-300">{classStats.avgGpa}</div>
           </div>
-          <div className="bg-emerald-500/20 rounded-xl p-3 border border-emerald-500/30">
-            <div className="text-xs text-emerald-200 flex items-center gap-1.5 font-medium">
-              🌟 {lang === 'ru' ? 'Отличники (5)' : 'Honors (5)'}
+
+          <div className="bg-slate-800/60 rounded-xl p-3 border border-emerald-900/40">
+            <div className="text-xs text-emerald-400 flex items-center gap-1.5 font-medium">
+              <Award size={14} className="text-emerald-400" />
+              <span>{lang === 'ru' ? 'Отличники (5)' : 'Honors (5)'}</span>
             </div>
-            <div className="text-xl font-black mt-0.5 text-emerald-300">{classStats.excellentCount}</div>
+            <div className="text-xl font-bold mt-1 text-emerald-300">{classStats.excellentCount}</div>
           </div>
-          <div className="bg-blue-500/20 rounded-xl p-3 border border-blue-500/30">
-            <div className="text-xs text-blue-200 flex items-center gap-1.5 font-medium">
-              📗 {lang === 'ru' ? 'Хорошисты (4-5)' : 'Good (4-5)'}
+
+          <div className="bg-slate-800/60 rounded-xl p-3 border border-blue-900/40">
+            <div className="text-xs text-blue-400 flex items-center gap-1.5 font-medium">
+              <CheckCircle2 size={14} className="text-blue-400" />
+              <span>{lang === 'ru' ? 'Хорошисты (4-5)' : 'Good (4-5)'}</span>
             </div>
-            <div className="text-xl font-black mt-0.5 text-blue-300">{classStats.goodCount}</div>
+            <div className="text-xl font-bold mt-1 text-blue-300">{classStats.goodCount}</div>
           </div>
-          <div className="bg-amber-500/20 rounded-xl p-3 border border-amber-500/30 col-span-2 sm:col-span-1">
-            <div className="text-xs text-amber-200 flex items-center gap-1.5 font-medium">
-              📙 {lang === 'ru' ? 'С тройками' : 'With 3s'}
+
+          <div className="bg-slate-800/60 rounded-xl p-3 border border-amber-900/40 col-span-2 sm:col-span-1">
+            <div className="text-xs text-amber-400 flex items-center gap-1.5 font-medium">
+              <Layers size={14} className="text-amber-400" />
+              <span>{lang === 'ru' ? 'С тройками (3)' : 'With 3s'}</span>
             </div>
-            <div className="text-xl font-black mt-0.5 text-amber-300">{classStats.satisfactoryCount}</div>
+            <div className="text-xl font-bold mt-1 text-amber-300">{classStats.satisfactoryCount}</div>
           </div>
         </div>
       </Card>
@@ -311,7 +336,7 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
       {/* Control Bar: Quarter Filter, Search */}
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm no-print">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mr-2">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">
             {lang === 'ru' ? 'Период:' : 'Period:'}
           </span>
           {[
@@ -324,7 +349,7 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
             <button
               key={q.id}
               onClick={() => setSelectedQuarter(q.id as any)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
                 selectedQuarter === q.id
                   ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30'
                   : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -348,9 +373,9 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
       </div>
 
       {/* Main Quarter Performance Matrix Table */}
-      <Card className="p-0 border border-slate-200 dark:border-slate-800 shadow-soft overflow-hidden">
+      <Card className="p-0 border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
-          <h3 className="font-bold text-slate-800 dark:text-white text-base flex items-center gap-2">
+          <h3 className="font-bold text-slate-800 dark:text-white text-sm sm:text-base flex items-center gap-2">
             <BookOpen size={18} className="text-blue-600 dark:text-blue-400" />
             <span>
               {selectedQuarter === 'all'
@@ -358,8 +383,8 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
                 : (lang === 'ru' ? `Оценки и средний балл за ${selectedQuarter.replace('Q','')} четверть` : `Grades and Average for Quarter ${selectedQuarter.replace('Q','')}`)}
             </span>
           </h3>
-          <span className="text-xs font-semibold text-slate-500">
-            {lang === 'ru' ? `Всего предметов: ${subjects.length}` : `Subjects: ${subjects.length}`}
+          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+            {lang === 'ru' ? `Предметов: ${subjects.length}` : `Subjects: ${subjects.length}`}
           </span>
         </div>
 
@@ -376,7 +401,7 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
                 </th>
                 {subjects.map(s => (
                   <th key={s} className="p-3.5 text-center min-w-[110px] border-r border-slate-200 dark:border-slate-700">
-                    <span className="truncate max-w-[120px] block mx-auto" title={s}>{s}</span>
+                    <span className="truncate max-w-[120px] block mx-auto font-bold" title={s}>{s}</span>
                   </th>
                 ))}
               </tr>
@@ -414,7 +439,7 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
                         </div>
                       </td>
                       <td className="p-3 text-center border-r border-slate-100 dark:border-slate-800 bg-blue-50/20 dark:bg-blue-950/20">
-                        <span className={`px-2 py-1 rounded-md font-extrabold text-xs inline-block shadow-sm ${gpaBadgeColor}`}>
+                        <span className={`px-2.5 py-1 rounded-lg font-extrabold text-xs inline-block shadow-xs ${gpaBadgeColor}`}>
                           {summary?.overallGpa || '-'}
                         </span>
                       </td>
@@ -430,29 +455,29 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
                             <td key={subj} className="p-2 text-center border-r border-slate-100 dark:border-slate-800">
                               <div className="flex flex-col items-center justify-center gap-1">
                                 {/* Row of 4 quarters */}
-                                <div className="grid grid-cols-4 gap-1 w-full max-w-[90px]">
+                                <div className="grid grid-cols-4 gap-1 w-full max-w-[96px]">
                                   {(['q1', 'q2', 'q3', 'q4'] as const).map(qKey => {
                                     const gradeVal = sData[`${qKey}Grade` as keyof typeof sData];
                                     const avgVal = sData[`${qKey}Avg` as keyof typeof sData];
-                                    const hasData = (gradeVal && gradeVal !== '-') || (avgVal && avgVal !== '-');
+                                    const qNum = qKey.replace('q', '');
                                     return (
                                       <div
                                         key={qKey}
-                                        title={`${qKey.toUpperCase()}: ${gradeVal ? `Оценка: ${gradeVal}` : ''} ${avgVal ? `(ср. ${avgVal})` : ''}`}
+                                        title={`${qNum} четв: ${gradeVal ? `Итог: ${gradeVal}` : ''} ${avgVal && avgVal !== '-' ? `(ср. ${avgVal})` : ''}`}
                                         className={`text-[10px] p-0.5 rounded font-bold text-center ${
                                           gradeVal
                                             ? H.getGradeColorClass(gradeVal, minGrade, maxGrade)
-                                            : (avgVal && avgVal !== '-' ? 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300' : 'text-slate-300 dark:text-slate-600')
+                                            : (avgVal && avgVal !== '-' ? 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300' : 'text-slate-300 dark:text-slate-600')
                                         }`}
                                       >
-                                        {gradeVal || (avgVal && avgVal !== '-' ? Math.round(parseFloat(avgVal)) : '·')}
+                                        {gradeVal || (avgVal && avgVal !== '-' ? Math.round(parseFloat(avgVal)) : '-')}
                                       </div>
                                     );
                                   })}
                                 </div>
                                 {/* Year Avg */}
                                 {sData.yearAvg && sData.yearAvg !== '-' && (
-                                  <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1 rounded">
+                                  <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded">
                                     {sData.yearAvg}
                                   </span>
                                 )}
@@ -460,7 +485,7 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
                             </td>
                           );
                         } else {
-                          // Single quarter view
+                          // Single quarter view (e.g. Q4)
                           const qKey = selectedQuarter.toLowerCase() as 'q1'|'q2'|'q3'|'q4';
                           const gradeVal = sData[`${qKey}Grade` as keyof typeof sData];
                           const avgVal = sData[`${qKey}Avg` as keyof typeof sData];
@@ -469,14 +494,14 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
                             <td key={subj} className="p-3 text-center border-r border-slate-100 dark:border-slate-800">
                               <div className="flex flex-col items-center justify-center gap-0.5">
                                 {gradeVal ? (
-                                  <span className={`px-2 py-0.5 rounded-md font-bold text-xs ${H.getGradeColorClass(gradeVal, minGrade, maxGrade)}`}>
+                                  <span className={`px-2.5 py-0.5 rounded-lg font-bold text-xs ${H.getGradeColorClass(gradeVal, minGrade, maxGrade)}`}>
                                     {gradeVal}
                                   </span>
                                 ) : (
                                   <span className="text-slate-300">—</span>
                                 )}
                                 {avgVal && avgVal !== '-' && (
-                                  <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
                                     {lang === 'ru' ? 'ср. ' : 'avg '}{avgVal}
                                   </span>
                                 )}
@@ -503,11 +528,11 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
           maxWidth="max-w-4xl"
         >
           <div className="space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+            <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700">
               <div>
                 <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">{t('student')}</div>
                 <div className="text-lg font-bold text-slate-800 dark:text-white">{activeStudentSummary.student.fio}</div>
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   {lang === 'ru' ? `Класс: ${selectedClassNum}${selectedClassLetter}` : `Class: ${selectedClassNum}${selectedClassLetter}`} • {lang === 'ru' ? 'Логин:' : 'Login:'} {activeStudentSummary.student.login}
                 </div>
               </div>
@@ -527,7 +552,7 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
                     <th className="p-3">3 {t('quarter')}</th>
                     <th className="p-3">4 {t('quarter')}</th>
                     <th className="p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">{lang === 'ru' ? 'Ср. балл' : 'Avg'}</th>
-                    <th className="p-3 bg-green-50 dark:bg-green-900/30 text-green-800 dark:text-green-300">{t('year')}</th>
+                    <th className="p-3 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300">{t('year')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
@@ -545,14 +570,14 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
                             <td key={qKey} className="p-3 border-r border-slate-100 dark:border-slate-800">
                               <div className="flex flex-col items-center justify-center gap-0.5">
                                 {gradeVal ? (
-                                  <span className={`px-2 py-0.5 rounded font-bold ${H.getGradeColorClass(gradeVal, minGrade, maxGrade)}`}>
+                                  <span className={`px-2.5 py-0.5 rounded-lg font-bold ${H.getGradeColorClass(gradeVal, minGrade, maxGrade)}`}>
                                     {gradeVal}
                                   </span>
                                 ) : (
                                   <span className="text-slate-300">—</span>
                                 )}
                                 {avgVal && avgVal !== '-' && (
-                                  <span className="text-[10px] text-slate-400">
+                                  <span className="text-[10px] text-slate-500 dark:text-slate-400">
                                     {avgVal}
                                   </span>
                                 )}
@@ -563,7 +588,7 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
                         <td className="p-3 font-bold text-blue-600 dark:text-blue-400 bg-blue-50/40 dark:bg-blue-950/20 border-r border-slate-100 dark:border-slate-800">
                           {sData?.yearAvg || '-'}
                         </td>
-                        <td className="p-3 font-bold text-green-700 dark:text-green-400 bg-green-50/40 dark:bg-green-950/20">
+                        <td className="p-3 font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50/40 dark:bg-emerald-950/20">
                           {sData?.yearGrade || '-'}
                         </td>
                       </tr>
@@ -578,7 +603,7 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
                 {t('cancel')}
               </Button>
               <Button variant="primary" onClick={() => window.print()}>
-                <Printer size={16} className="mr-1.5" />
+                <Printer size={15} className="mr-1.5" />
                 {t('print')}
               </Button>
             </div>

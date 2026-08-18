@@ -43,7 +43,7 @@ export default function DirectorDashboard({ state, onUpdate, user }: Props) {
         <TabButton 
           active={view === 'homeroom'} 
           onClick={() => setView('homeroom')} 
-          label={`👑 ${t('homeroom_tab')}${leadingClasses.length > 0 ? ` (${leadingClasses.map(c => `${c.class}${c.letter}`).join(', ')})` : ''}`} 
+          label={`${t('homeroom_tab')}${leadingClasses.length > 0 ? ` (${leadingClasses.map(c => `${c.class}${c.letter}`).join(', ')})` : ''}`} 
         />
         <TabButton active={view === 'rating'} onClick={() => setView('rating')} label={t('rating')} />
         <TabButton active={view === 'grading'} onClick={() => setView('grading')} label={t('grading_setup')} />

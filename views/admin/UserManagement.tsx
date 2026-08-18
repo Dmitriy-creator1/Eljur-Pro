@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { AppState, User, Role } from '../../types';
 import * as H from '../../utils/helpers';
 import { Button, Input, Select, Card, SearchableSelect, MultiSelect, Modal } from '../../components/ui';
-import { Trash2, GripVertical, Lock, Unlock, Minus, Plus, UserX, PlusCircle, X as XIcon, Check, AlertCircle, Shield, Building, Printer } from 'lucide-react';
+import { Trash2, GripVertical, Lock, Unlock, Minus, Plus, UserX, PlusCircle, X as XIcon, Check, AlertCircle, Shield, Building, Printer, GraduationCap } from 'lucide-react';
 
 export const UserManagement = ({ state, onUpdate, currentUser, isGlobal = false }: { state: AppState, onUpdate: (s: AppState) => void, currentUser: User, isGlobal?: boolean }) => {
     const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
@@ -207,7 +207,7 @@ export const UserManagement = ({ state, onUpdate, currentUser, isGlobal = false 
                                                 }
                                                 let label = `${H.formatShortName(cand.fio)} (${roleName})${extra}`;
                                                 if (!check.canAssign) {
-                                                    label = `🔒 ${label} [${t('max_2_classes_reached')}]`;
+                                                    label = `${label} [${t('max_2_classes_reached')}]`;
                                                 }
                                                 return (
                                                     <option key={cand.id} value={cand.id} disabled={!check.canAssign}>
@@ -243,8 +243,9 @@ export const UserManagement = ({ state, onUpdate, currentUser, isGlobal = false 
         const leadingClasses = H.getUserLeadingClasses(state, u.schoolId, u.id);
         const leadingBadge = leadingClasses.length > 0 ? (
             <div className="mt-1 flex flex-wrap gap-1 items-center justify-center">
-                <span className="px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-md text-[10px] font-bold dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-300">
-                    👑 Кл. рук: {leadingClasses.map(c => `${c.class}${c.letter}`).join(', ')}
+                <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-md text-[10px] font-bold dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300 flex items-center gap-1">
+                    <GraduationCap size={11} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                    <span>{lang === 'ru' ? 'Кл. рук: ' : 'Class Teacher: '}{leadingClasses.map(c => `${c.class}${c.letter}`).join(', ')}</span>
                 </span>
             </div>
         ) : null;

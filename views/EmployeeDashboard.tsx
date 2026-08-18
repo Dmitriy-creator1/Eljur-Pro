@@ -54,7 +54,7 @@ export default function EmployeeDashboard({ state, onUpdate, user }: Props) {
           <TabButton 
             active={view === 'homeroom'} 
             onClick={() => setView('homeroom')} 
-            label={`👑 ${t('homeroom_tab')} (${leadingClasses.map(c => `${c.class}${c.letter}`).join(', ')})`} 
+            label={`${t('homeroom_tab')} (${leadingClasses.map(c => `${c.class}${c.letter}`).join(', ')})`} 
           />
         )}
         {allowedTabs.includes('messages') && <TabButton active={view === 'messages'} onClick={() => setView('messages')} label={t('messages')} badgeCount={unreadMessagesCount} />}

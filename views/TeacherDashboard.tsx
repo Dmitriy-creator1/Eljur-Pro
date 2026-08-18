@@ -53,7 +53,7 @@ export default function TeacherDashboard({ state, onUpdate, user }: { state: App
           <TabButton 
             active={view === 'homeroom'} 
             onClick={() => handleTabClick('homeroom')} 
-            label={`👑 ${t('homeroom_tab')} (${leadingClasses.map(c => `${c.class}${c.letter}`).join(', ')})`} 
+            label={`${t('homeroom_tab')} (${leadingClasses.map(c => `${c.class}${c.letter}`).join(', ')})`} 
           />
         )}
         <TabButton active={view === 'rating'} onClick={() => handleTabClick('rating')} label={t('rating')} />

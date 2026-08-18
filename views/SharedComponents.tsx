@@ -881,7 +881,7 @@ export const Messaging: React.FC<MessagingProps> = ({ state, onUpdate, currentUs
   if (isDirector || currentUser.role === 'teacher' || isEmployee) {
      if (isDirector || isEmployee) {
         userOptions.push({ value: 'GROUP_TEACHERS', label: t('all_teachers'), group: t('groups') });
-        userOptions.push({ value: 'GROUP_HEADMASTERS', label: lang === 'ru' ? 'Все классные руководители' : 'All Class Teachers', group: t('groups') });
+        userOptions.push({ value: 'GROUP_HEADMASTERS', label: t('all_class_teachers'), group: t('groups') });
      }
      
      // Classes logic
