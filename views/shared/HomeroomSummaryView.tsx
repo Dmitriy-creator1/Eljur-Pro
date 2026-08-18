@@ -247,13 +247,6 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
             <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white font-heading">
               {lang === 'ru' ? `Успеваемость класса ${selectedClassNum}${selectedClassLetter}` : `Class ${selectedClassNum}${selectedClassLetter} Performance`}
             </h2>
-
-            <div className="text-slate-300 text-xs sm:text-sm mt-2 flex flex-wrap items-center gap-2">
-              <span className="text-slate-400">{lang === 'ru' ? 'Классный руководитель:' : 'Class Teacher:'}</span>
-              <span className="font-semibold text-white bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700">
-                {classHeadmaster ? `${classHeadmaster.fio} (${classHeadmaster.role === 'director' ? t('director') : (classHeadmaster.customRole || t(classHeadmaster.role))})` : (lang === 'ru' ? 'Не назначен' : 'Not assigned')}
-              </span>
-            </div>
           </div>
 
           {/* Class Switcher Buttons */}

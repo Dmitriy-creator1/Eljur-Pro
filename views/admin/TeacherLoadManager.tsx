@@ -8,11 +8,11 @@ import { Briefcase, Copy, ChevronUp, ChevronDown, RefreshCw, X as XIcon } from '
 export const TeacherLoadManager = ({ state, onUpdate, user }: { state: AppState, onUpdate: (s: AppState) => void, user?: User }) => {
     const schoolId = user?.schoolId;
     const teachers = state.users.filter(u => u.role === 'teacher' && (schoolId ? u.schoolId === schoolId : true)).sort((a,b) => a.fio.localeCompare(b.fio));
-    const schoolClasses = schoolId ? H.getSchoolClasses(state, schoolId) : state.classes;
-    const schoolSubjects = schoolId ? H.getSchoolSubjects(state, schoolId) : state.subjects;
+    const schoolClasses = H.getSchoolClasses(state, schoolId);
+    const schoolSubjects = H.getSchoolSubjects(state, schoolId);
     const [expandedTeacher, setExpandedTeacher] = useState<string | null>(null);
     const [newAssignClass, setNewAssignClass] = useState(schoolClasses[0] ? `${schoolClasses[0].class}_${schoolClasses[0].letter}` : '');
-    const [newAssignSubject, setNewAssignSubject] = useState(schoolSubjects[0] || '');
+    const [newAssignSubject, setNewAssignSubject] = useState(schoolSubjects[0] || 'Русский язык');
     const lang = state.settings.language || 'ru';
     const t = (k: string) => H.t(k, lang);
     const [confirmSync, setConfirmSync] = useState<{isOpen: boolean, type: 'all' | 'single', teacherId?: string, count?: number} | null>(null);

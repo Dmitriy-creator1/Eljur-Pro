@@ -214,33 +214,56 @@
             top: 0; left: 0; right: 0; bottom: 0;
             border-radius: 50% 0 50% 0;
             background: linear-gradient(to bottom right, transparent 48%, rgba(0,0,0,0.15) 49%, transparent 51%);
-        }
-
-        /* --- BEAUTIFUL PRINT STYLES (A4 Optimized & Capacious) --- */
+             /* --- BEAUTIFUL PRINT STYLES (A4 Optimized & Capacious) --- */
         @media print {
             @page {
                 size: landscape;
-                margin: 5mm; /* Narrow margins for capacious layout */
+                margin: 6mm;
             }
 
-            body { 
-                background: white !important; 
-                color: black !important; 
+            *, *:before, *:after {
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
-                font-size: 10pt !important;
-                width: 100%;
-                margin: 0;
-                padding: 0;
+                box-shadow: none !important;
+                text-shadow: none !important;
+            }
+
+            body, html { 
+                background: #ffffff !important; 
+                color: #0f172a !important; 
+                font-size: 9pt !important;
+                width: 100% !important;
+                height: auto !important;
+                min-height: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: visible !important;
             }
 
             /* Hide UI Elements */
-            .no-print, header, footer, button, .lucide, .fixed, input[type="file"], .tab-button, select:not(.print-show), .shadow-soft, .shadow-glow, .bg-gradient-to-tr, .bg-gradient-to-br, .modal-backdrop, .season-element, .season-petal, .season-pollen, .season-autumn-leaf, nav { 
+            .no-print, 
+            header, 
+            footer, 
+            nav, 
+            button, 
+            .lucide, 
+            input[type="file"], 
+            .tab-button, 
+            select:not(.print-show), 
+            .shadow-soft, 
+            .shadow-glow, 
+            .bg-gradient-to-tr, 
+            .bg-gradient-to-br, 
+            .season-element, 
+            .season-petal, 
+            .season-pollen, 
+            .season-autumn-leaf, 
+            .season-snowflake { 
                 display: none !important; 
             }
             
-            /* Reset Layout */
-            main, .max-w-7xl, .w-full, .p-8, .p-6, .card {
+            /* Reset Layout Containers */
+            #root, main, .max-w-7xl, .w-full, .p-8, .p-6, .card {
                 width: 100% !important;
                 max-width: none !important;
                 margin: 0 !important;
@@ -248,59 +271,90 @@
                 box-shadow: none !important;
                 border: none !important;
                 background: transparent !important;
+                overflow: visible !important;
             }
             
             /* Remove sticky positioning for print */
             .sticky {
                 position: static !important;
+                left: auto !important;
+                right: auto !important;
+                top: auto !important;
+                bottom: auto !important;
+                background: transparent !important;
+            }
+
+            /* Ensure text contrast */
+            .text-white, .text-slate-100, .text-slate-200, .text-slate-300, .text-slate-400 {
+                color: #0f172a !important;
+            }
+            .bg-slate-900, .bg-slate-950, .bg-slate-800, .bg-slate-700 {
+                background: #f8fafc !important;
+                color: #0f172a !important;
+                border: 1pt solid #cbd5e1 !important;
             }
 
             /* Flatten Cards */
             .card, div[class*="bg-white"], div[class*="shadow-"] { 
                 box-shadow: none !important; 
-                border: none !important;
-                padding: 0 !important;
-                margin: 0 !important;
-                background: transparent !important;
+                border: 1pt solid #e2e8f0 !important; 
+                padding: 8px !important; 
+                margin: 0 0 12px 0 !important; 
+                background: #ffffff !important; 
             }
-            
-            /* Hide modal overlays */
-            #grade-detail-panel { display: none !important; }
+
+            /* Modals handling if printing from active modal */
+            .fixed.inset-0 {
+                position: static !important;
+                width: 100% !important;
+                height: auto !important;
+                background: transparent !important;
+                padding: 0 !important;
+                display: block !important;
+                backdrop-filter: none !important;
+            }
+            .fixed.inset-0 > div {
+                max-width: 100% !important;
+                max-height: none !important;
+                box-shadow: none !important;
+                border: none !important;
+                background: transparent !important;
+                overflow: visible !important;
+            }
 
             /* --- CAPACIOUS TABLE STYLING --- */
-            .overflow-x-auto {
+            .overflow-x-auto, .overflow-y-auto, .overflow-hidden {
                 overflow: visible !important;
-                display: block;
-                width: 100%;
+                display: block !important;
+                width: 100% !important;
+                max-height: none !important;
             }
 
             table {
                 width: 100% !important;
                 min-width: 0 !important;
                 border-collapse: collapse !important;
-                border: 1pt solid #cbd5e1 !important;
-                margin-top: 10px;
-                margin-bottom: 20px;
-                font-size: 8pt !important; /* Smaller text for more capacity */
-                table-layout: auto !important; /* Allow columns to size naturally */
+                border: 1pt solid #94a3b8 !important;
+                margin-top: 8px !important;
+                margin-bottom: 16px !important;
+                font-size: 8pt !important;
+                table-layout: auto !important;
             }
             
             th, td { 
                 border: 1pt solid #cbd5e1 !important; 
-                padding: 2px 4px !important; /* Very compact padding */
-                color: #1e293b !important;
+                padding: 3px 5px !important;
+                color: #0f172a !important;
                 background: transparent !important;
                 word-wrap: break-word !important;
-                overflow: hidden !important;
-                text-align: left;
                 vertical-align: middle !important;
-                min-width: 0 !important;
+                text-align: center;
             }
 
             th {
-                background-color: #f1f5f9 !important; /* Light slate header */
+                background-color: #f1f5f9 !important;
                 color: #0f172a !important;
-                font-weight: 600 !important;
+                font-weight: 700 !important;
                 text-transform: uppercase;
                 font-size: 7.5pt !important;
                 letter-spacing: 0.02em;
@@ -309,19 +363,11 @@
             }
 
             tr:nth-child(even) td {
-                background-color: #f8fafc !important; /* Very light slate for alternating rows */
+                background-color: #f8fafc !important;
             }
 
-            table .w-16, table .w-24, table .w-32, table .w-40, table .w-48 {
-                width: auto !important;
-                min-width: 0 !important;
-            }
-            table .h-20, table .h-16, table .h-12 {
-                height: auto !important;
-                min-height: 0 !important;
-            }
-            .text-center { text-align: center !important; }
-            .text-center-all th, .text-center-all td { text-align: center !important; }
+            thead { display: table-header-group !important; }
+            tr { page-break-inside: avoid !important; }
 
             /* Fix inputs/selects in tables to look like text */
             input, select, textarea {
@@ -335,7 +381,7 @@
                 font-weight: bold !important;
                 text-align: center !important;
                 color: #0f172a !important;
-                font-size: 10pt !important;
+                font-size: 9pt !important;
                 -webkit-appearance: none;
                 appearance: none;
             }

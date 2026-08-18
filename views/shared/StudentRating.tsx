@@ -168,7 +168,7 @@ export const StudentRating = ({ state, schoolId, isGlobal = false }: { state: Ap
                         {showSubjects && (
                             <div className="absolute top-full left-0 mt-2 z-50 w-full bg-white border border-slate-200 rounded-xl shadow-xl p-3 dark:bg-slate-900 dark:border-slate-700 flex flex-col animate-in fade-in slide-in-from-top-2">
                                 <div className="max-h-[400px] overflow-y-auto custom-scrollbar flex-1 space-y-1">
-                                    {state.subjects.map(subj => (
+                                    {H.getSchoolSubjects(state, isGlobal ? filterSchool : schoolId).map(subj => (
                                         <label key={subj} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors dark:hover:bg-slate-800">
                                             <input 
                                                 type="checkbox" 
@@ -182,7 +182,7 @@ export const StudentRating = ({ state, schoolId, isGlobal = false }: { state: Ap
                                             <span className="text-sm text-slate-700 dark:text-slate-200">{subj}</span>
                                         </label>
                                     ))}
-                                    {state.subjects.length === 0 && <div className="text-slate-400 text-sm text-center py-4">{t('list_empty')}</div>}
+                                    {H.getSchoolSubjects(state, isGlobal ? filterSchool : schoolId).length === 0 && <div className="text-slate-400 text-sm text-center py-4">{t('list_empty')}</div>}
                                 </div>
                                 <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 text-center">
                                     <button onClick={() => setShowSubjects(false)} className="text-sm text-blue-600 font-bold hover:underline">{t('done')}</button>

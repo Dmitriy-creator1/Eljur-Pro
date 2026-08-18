@@ -1467,19 +1467,62 @@ export const setClassHeadmaster = (
     }
 };
 
+export const DEFAULT_SUBJECTS: string[] = [
+    'Русский язык',
+    'Литература',
+    'Математика',
+    'Алгебра',
+    'Геометрия',
+    'Информатика',
+    'Физика',
+    'Химия',
+    'Биология',
+    'История',
+    'Обществознание',
+    'География',
+    'Иностранный язык',
+    'Английский язык',
+    'Физкультура',
+    'ОБЖ',
+    'Технология',
+    'Музыка',
+    'ИЗО',
+    'Окружающий мир'
+];
+
 export const getSchoolSubjects = (state: AppState, schoolId?: string): string[] => {
     const school = getSchool(state, schoolId);
-    if (school && school.subjects && school.subjects.length > 0) return school.subjects;
-    if (schoolId) {
-        const schoolSubjects = new Set<string>();
+    const subjectSet = new Set<string>();
+
+    // 1. School custom subjects if configured
+    if (school && Array.isArray(school.subjects) && school.subjects.length > 0) {
+        school.subjects.forEach(s => s && subjectSet.add(s.trim()));
+    }
+
+    // 2. Global state subjects (from schedule subject manager)
+    if (Array.isArray(state.subjects) && state.subjects.length > 0) {
+        state.subjects.forEach(s => s && subjectSet.add(s.trim()));
+    }
+
+    // 3. Always ensure standard curriculum default subjects are available
+    DEFAULT_SUBJECTS.forEach(s => subjectSet.add(s));
+
+    // 4. Any subjects taught by teachers or present in assignments for this school
+    if (state.users) {
         state.users.forEach(u => {
-            if (u.schoolId === schoolId && u.role === 'teacher' && u.subjects) {
-                u.subjects.forEach(s => schoolSubjects.add(s));
+            if ((!schoolId || u.schoolId === schoolId) && u.role === 'teacher' && u.subjects) {
+                u.subjects.forEach(s => s && subjectSet.add(s.trim()));
             }
         });
-        if (schoolSubjects.size > 0) return Array.from(schoolSubjects);
     }
-    return state.subjects && state.subjects.length > 0 ? state.subjects : ['Математика', 'Русский язык', 'Физика', 'Литература'];
+
+    if (state.teacherAssignments) {
+        state.teacherAssignments.forEach(a => {
+            if (a.subject) subjectSet.add(a.subject.trim());
+        });
+    }
+
+    return Array.from(subjectSet).filter(Boolean);
 };
 
 export const getSchoolClassKey = (schoolId: string | undefined, classKey: string): string => {
