@@ -224,33 +224,53 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
 
   // Selected student for detailed report card
   const activeStudentSummary = studentSummaries.find(s => s.student.id === selectedStudentId);
+  const currentSchool = H.getSchool(state, user.schoolId);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
+      {/* Printable Document Header (visible ONLY during print) */}
+      <div className="hidden print:block mb-4 text-center border-b border-slate-300 pb-3">
+        <h1 className="text-base font-bold uppercase tracking-wide text-slate-900">
+          {currentSchool?.name || 'Электронный Журнал'}
+        </h1>
+        <h2 className="text-lg font-extrabold text-slate-900 mt-0.5">
+          {lang === 'ru' ? `Сводная ведомость успеваемости класса ${selectedClassNum}${selectedClassLetter}` : `Class ${selectedClassNum}${selectedClassLetter} Academic Summary`}
+        </h2>
+        <div className="flex justify-center items-center gap-4 text-xs text-slate-600 mt-1">
+          <span>{lang === 'ru' ? 'Период' : 'Period'}: {selectedQuarter === 'all' ? (lang === 'ru' ? 'Все четверти (1-4)' : 'All Quarters') : `${selectedQuarter.replace('Q','')} ${t('quarter')}`}</span>
+          <span>•</span>
+          <span>{lang === 'ru' ? 'Учеников' : 'Students'}: {classStats.total}</span>
+          <span>•</span>
+          <span>{lang === 'ru' ? 'Ср. балл' : 'Avg GPA'}: {classStats.avgGpa}</span>
+          <span>•</span>
+          <span>{lang === 'ru' ? 'Дата' : 'Date'}: {H.formatDateDDMMYYYY(new Date().toISOString().split('T')[0])}</span>
+        </div>
+      </div>
+
       {/* Header card with leading class switchers & summary */}
-      <Card className="p-6 md:p-8 bg-slate-900 text-white shadow-lg border border-slate-800 rounded-2xl relative overflow-hidden">
+      <Card className="p-6 md:p-7 bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-soft border border-slate-200 dark:border-slate-800 rounded-2xl relative overflow-hidden">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
           <div>
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              <span className="px-3 py-1 bg-blue-500/10 text-blue-300 rounded-lg text-xs font-bold uppercase tracking-wider border border-blue-500/20 flex items-center gap-1.5">
-                <GraduationCap size={14} className="text-blue-400" />
+            <div className="flex flex-wrap items-center gap-2 mb-2.5">
+              <span className="px-3 py-1 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded-lg text-xs font-bold uppercase tracking-wider border border-blue-200/80 dark:border-blue-800/50 flex items-center gap-1.5">
+                <GraduationCap size={14} className="text-blue-600 dark:text-blue-400" />
                 <span>{lang === 'ru' ? 'Классное руководство' : 'Class Leadership'}</span>
               </span>
               {leadingClasses.some(c => `${c.class}_${c.letter}` === selectedClassKey) && (
-                <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-300 rounded-lg text-xs font-bold border border-emerald-500/20 flex items-center gap-1">
-                  <UserCheck size={13} className="text-emerald-400" />
+                <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 rounded-lg text-xs font-bold border border-emerald-200/80 dark:border-emerald-800/50 flex items-center gap-1">
+                  <UserCheck size={13} className="text-emerald-600 dark:text-emerald-400" />
                   <span>{lang === 'ru' ? 'Ваш класс' : 'Your Class'}</span>
                 </span>
               )}
             </div>
 
-            <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white font-heading">
+            <h2 className="text-xl md:text-2xl font-bold tracking-tight text-slate-900 dark:text-white font-heading">
               {lang === 'ru' ? `Успеваемость класса ${selectedClassNum}${selectedClassLetter}` : `Class ${selectedClassNum}${selectedClassLetter} Performance`}
             </h2>
           </div>
 
-          {/* Class Switcher Buttons */}
-          <div className="flex flex-wrap items-center gap-2">
+          {/* Class Switcher Buttons & Print */}
+          <div className="flex flex-wrap items-center gap-2 no-print">
             {availableClasses.map(c => {
               const key = `${c.class}_${c.letter}`;
               const isSelected = key === selectedClassKey;
@@ -259,14 +279,14 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
                 <button
                   key={key}
                   onClick={() => setSelectedClassKey(key)}
-                  className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 flex items-center gap-2 ${
+                  className={`px-4 py-2 rounded-xl font-bold text-sm transition-all duration-200 flex items-center gap-1.5 ${
                     isSelected
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 border border-blue-500'
-                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                      ? 'bg-blue-600 text-white shadow-sm border border-blue-600'
+                      : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
                   }`}
                 >
                   <span>{c.class}{c.letter}</span>
-                  {isMyClass && <UserCheck size={13} className="text-blue-200" />}
+                  {isMyClass && <UserCheck size={13} className={isSelected ? 'text-blue-100' : 'text-slate-400'} />}
                 </button>
               );
             })}
@@ -274,60 +294,60 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
               variant="secondary"
               size="sm"
               onClick={() => window.print()}
-              className="bg-slate-800 hover:bg-slate-700 text-white border-slate-700 ml-1 no-print"
+              className="ml-1"
             >
-              <Printer size={15} className="mr-1.5" />
-              {t('print')}
+              <Printer size={15} className="mr-1.5 text-slate-500" />
+              <span>{t('print')}</span>
             </Button>
           </div>
         </div>
 
         {/* Quick Stats Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mt-6 pt-6 border-t border-slate-800">
-          <div className="bg-slate-800/60 rounded-xl p-3 border border-slate-700/60">
-            <div className="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
-              <Users size={14} className="text-blue-400" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mt-6 pt-5 border-t border-slate-100 dark:border-slate-800">
+          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3.5 border border-slate-200/70 dark:border-slate-700/60">
+            <div className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-medium">
+              <Users size={14} className="text-blue-600 dark:text-blue-400" />
               <span>{lang === 'ru' ? 'Учеников' : 'Students'}</span>
             </div>
-            <div className="text-xl font-bold mt-1 text-white">{classStats.total}</div>
+            <div className="text-2xl font-bold mt-1 text-slate-900 dark:text-white">{classStats.total}</div>
           </div>
 
-          <div className="bg-slate-800/60 rounded-xl p-3 border border-slate-700/60">
-            <div className="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
-              <TrendingUp size={14} className="text-amber-400" />
+          <div className="bg-amber-50/50 dark:bg-amber-950/20 rounded-xl p-3.5 border border-amber-200/70 dark:border-amber-900/40">
+            <div className="text-xs text-amber-700 dark:text-amber-400 flex items-center gap-1.5 font-medium">
+              <TrendingUp size={14} className="text-amber-600 dark:text-amber-400" />
               <span>{lang === 'ru' ? 'Средний балл' : 'Average GPA'}</span>
             </div>
-            <div className="text-xl font-bold mt-1 text-amber-300">{classStats.avgGpa}</div>
+            <div className="text-2xl font-bold mt-1 text-amber-700 dark:text-amber-300">{classStats.avgGpa}</div>
           </div>
 
-          <div className="bg-slate-800/60 rounded-xl p-3 border border-emerald-900/40">
-            <div className="text-xs text-emerald-400 flex items-center gap-1.5 font-medium">
-              <Award size={14} className="text-emerald-400" />
+          <div className="bg-emerald-50/50 dark:bg-emerald-950/20 rounded-xl p-3.5 border border-emerald-200/70 dark:border-emerald-900/40">
+            <div className="text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5 font-medium">
+              <Award size={14} className="text-emerald-600 dark:text-emerald-400" />
               <span>{lang === 'ru' ? 'Отличники (5)' : 'Honors (5)'}</span>
             </div>
-            <div className="text-xl font-bold mt-1 text-emerald-300">{classStats.excellentCount}</div>
+            <div className="text-2xl font-bold mt-1 text-emerald-700 dark:text-emerald-300">{classStats.excellentCount}</div>
           </div>
 
-          <div className="bg-slate-800/60 rounded-xl p-3 border border-blue-900/40">
-            <div className="text-xs text-blue-400 flex items-center gap-1.5 font-medium">
-              <CheckCircle2 size={14} className="text-blue-400" />
+          <div className="bg-blue-50/50 dark:bg-blue-950/20 rounded-xl p-3.5 border border-blue-200/70 dark:border-blue-900/40">
+            <div className="text-xs text-blue-700 dark:text-blue-400 flex items-center gap-1.5 font-medium">
+              <CheckCircle2 size={14} className="text-blue-600 dark:text-blue-400" />
               <span>{lang === 'ru' ? 'Хорошисты (4-5)' : 'Good (4-5)'}</span>
             </div>
-            <div className="text-xl font-bold mt-1 text-blue-300">{classStats.goodCount}</div>
+            <div className="text-2xl font-bold mt-1 text-blue-700 dark:text-blue-300">{classStats.goodCount}</div>
           </div>
 
-          <div className="bg-slate-800/60 rounded-xl p-3 border border-amber-900/40 col-span-2 sm:col-span-1">
-            <div className="text-xs text-amber-400 flex items-center gap-1.5 font-medium">
-              <Layers size={14} className="text-amber-400" />
+          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3.5 border border-slate-200/70 dark:border-slate-700/60 col-span-2 sm:col-span-1">
+            <div className="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1.5 font-medium">
+              <Layers size={14} className="text-orange-600 dark:text-orange-400" />
               <span>{lang === 'ru' ? 'С тройками (3)' : 'With 3s'}</span>
             </div>
-            <div className="text-xl font-bold mt-1 text-amber-300">{classStats.satisfactoryCount}</div>
+            <div className="text-2xl font-bold mt-1 text-orange-700 dark:text-orange-300">{classStats.satisfactoryCount}</div>
           </div>
         </div>
       </Card>
 
       {/* Control Bar: Quarter Filter, Search */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm no-print">
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-soft no-print">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">
             {lang === 'ru' ? 'Период:' : 'Period:'}
@@ -366,8 +386,8 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
       </div>
 
       {/* Main Quarter Performance Matrix Table */}
-      <Card className="p-0 border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
+      <Card className="p-0 border border-slate-200 dark:border-slate-800 shadow-soft overflow-hidden">
+        <div className="p-4 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center no-print">
           <h3 className="font-bold text-slate-800 dark:text-white text-sm sm:text-base flex items-center gap-2">
             <BookOpen size={18} className="text-blue-600 dark:text-blue-400" />
             <span>
@@ -382,19 +402,19 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-xs min-w-[900px]">
-            <thead className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-700">
+          <table className="w-full text-xs print:text-[9pt] border-collapse">
+            <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold border-b border-slate-200 dark:border-slate-700">
               <tr>
-                <th className="p-3.5 text-center w-10 sticky left-0 bg-slate-100 dark:bg-slate-800 z-10">№</th>
-                <th className="p-3.5 text-left min-w-[200px] sticky left-10 bg-slate-100 dark:bg-slate-800 z-10 border-r border-slate-200 dark:border-slate-700">
+                <th className="p-3 text-center w-10 sticky left-0 bg-slate-100 dark:bg-slate-800 z-10 print:static print:w-6">№</th>
+                <th className="p-3 text-left min-w-[180px] print:min-w-0 sticky left-10 bg-slate-100 dark:bg-slate-800 z-10 border-r border-slate-200 dark:border-slate-700 print:static">
                   {t('fio')}
                 </th>
-                <th className="p-3.5 text-center bg-blue-50 text-blue-900 dark:bg-blue-900/40 dark:text-blue-300 min-w-[90px] border-r border-slate-200 dark:border-slate-700 font-extrabold">
-                  {lang === 'ru' ? 'Общий балл' : 'Class GPA'}
+                <th className="p-3 text-center bg-blue-50 text-blue-900 dark:bg-blue-900/40 dark:text-blue-300 min-w-[80px] print:min-w-0 border-r border-slate-200 dark:border-slate-700 font-extrabold">
+                  {lang === 'ru' ? 'Общий балл' : 'GPA'}
                 </th>
                 {subjects.map(s => (
-                  <th key={s} className="p-3.5 text-center min-w-[110px] border-r border-slate-200 dark:border-slate-700">
-                    <span className="truncate max-w-[120px] block mx-auto font-bold" title={s}>{s}</span>
+                  <th key={s} className="p-2.5 text-center min-w-[90px] print:min-w-0 border-r border-slate-200 dark:border-slate-700">
+                    <span className="truncate block mx-auto font-bold print:whitespace-normal" title={s}>{s}</span>
                   </th>
                 ))}
               </tr>
@@ -422,17 +442,17 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
                       onClick={() => setSelectedStudentId(student.id)}
                       className="hover:bg-blue-50/50 dark:hover:bg-slate-800/60 cursor-pointer transition-colors group"
                     >
-                      <td className="p-3 text-center text-slate-400 font-mono sticky left-0 bg-white dark:bg-slate-900 group-hover:bg-blue-50/50 dark:group-hover:bg-slate-800/60">
+                      <td className="p-2.5 text-center text-slate-400 font-mono sticky left-0 bg-white dark:bg-slate-900 group-hover:bg-blue-50/50 dark:group-hover:bg-slate-800/60 print:static">
                         {idx + 1}
                       </td>
-                      <td className="p-3 text-left font-semibold text-slate-800 dark:text-slate-200 sticky left-10 bg-white dark:bg-slate-900 group-hover:bg-blue-50/50 dark:group-hover:bg-slate-800/60 border-r border-slate-100 dark:border-slate-800">
+                      <td className="p-2.5 text-left font-semibold text-slate-800 dark:text-slate-200 sticky left-10 bg-white dark:bg-slate-900 group-hover:bg-blue-50/50 dark:group-hover:bg-slate-800/60 border-r border-slate-100 dark:border-slate-800 print:static">
                         <div className="flex items-center justify-between gap-2">
                           <span className="truncate">{student.fio}</span>
-                          <ChevronRight size={14} className="text-slate-300 group-hover:text-blue-500 transition-colors shrink-0" />
+                          <ChevronRight size={14} className="text-slate-300 group-hover:text-blue-500 transition-colors shrink-0 no-print" />
                         </div>
                       </td>
-                      <td className="p-3 text-center border-r border-slate-100 dark:border-slate-800 bg-blue-50/20 dark:bg-blue-950/20">
-                        <span className={`px-2.5 py-1 rounded-lg font-extrabold text-xs inline-block shadow-xs ${gpaBadgeColor}`}>
+                      <td className="p-2.5 text-center border-r border-slate-100 dark:border-slate-800 bg-blue-50/20 dark:bg-blue-950/20">
+                        <span className={`px-2 py-0.5 rounded-lg font-bold text-xs inline-block ${gpaBadgeColor}`}>
                           {summary?.overallGpa || '-'}
                         </span>
                       </td>
@@ -440,7 +460,7 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
                       {subjects.map(subj => {
                         const sData = summary?.subjects[subj];
                         if (!sData) {
-                          return <td key={subj} className="p-3 text-center text-slate-300 border-r border-slate-100 dark:border-slate-800">-</td>;
+                          return <td key={subj} className="p-2.5 text-center text-slate-300 border-r border-slate-100 dark:border-slate-800">-</td>;
                         }
 
                         if (selectedQuarter === 'all') {
@@ -448,7 +468,7 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
                             <td key={subj} className="p-2 text-center border-r border-slate-100 dark:border-slate-800">
                               <div className="flex flex-col items-center justify-center gap-1">
                                 {/* Row of 4 quarters */}
-                                <div className="grid grid-cols-4 gap-1 w-full max-w-[96px]">
+                                <div className="grid grid-cols-4 gap-1 w-full max-w-[96px] print:max-w-none print:flex print:justify-center">
                                   {(['q1', 'q2', 'q3', 'q4'] as const).map(qKey => {
                                     const gradeVal = sData[`${qKey}Grade` as keyof typeof sData];
                                     const avgVal = sData[`${qKey}Avg` as keyof typeof sData];
@@ -470,7 +490,7 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
                                 </div>
                                 {/* Year Avg */}
                                 {sData.yearAvg && sData.yearAvg !== '-' && (
-                                  <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.5 rounded">
+                                  <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-1.5 py-0.2 rounded print:text-[8pt]">
                                     {sData.yearAvg}
                                   </span>
                                 )}
@@ -484,10 +504,10 @@ export const HomeroomSummaryView: React.FC<Props> = ({ state, user, onUpdate }) 
                           const avgVal = sData[`${qKey}Avg` as keyof typeof sData];
 
                           return (
-                            <td key={subj} className="p-3 text-center border-r border-slate-100 dark:border-slate-800">
+                            <td key={subj} className="p-2.5 text-center border-r border-slate-100 dark:border-slate-800">
                               <div className="flex flex-col items-center justify-center gap-0.5">
                                 {gradeVal ? (
-                                  <span className={`px-2.5 py-0.5 rounded-lg font-bold text-xs ${H.getGradeColorClass(gradeVal, minGrade, maxGrade)}`}>
+                                  <span className={`px-2 py-0.5 rounded-lg font-bold text-xs ${H.getGradeColorClass(gradeVal, minGrade, maxGrade)}`}>
                                     {gradeVal}
                                   </span>
                                 ) : (

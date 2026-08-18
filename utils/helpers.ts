@@ -1492,37 +1492,23 @@ export const DEFAULT_SUBJECTS: string[] = [
 
 export const getSchoolSubjects = (state: AppState, schoolId?: string): string[] => {
     const school = getSchool(state, schoolId);
-    const subjectSet = new Set<string>();
-
-    // 1. School custom subjects if configured
     if (school && Array.isArray(school.subjects) && school.subjects.length > 0) {
-        school.subjects.forEach(s => s && subjectSet.add(s.trim()));
+        return school.subjects.filter(Boolean);
     }
-
-    // 2. Global state subjects (from schedule subject manager)
     if (Array.isArray(state.subjects) && state.subjects.length > 0) {
-        state.subjects.forEach(s => s && subjectSet.add(s.trim()));
+        return state.subjects.filter(Boolean);
     }
+    return DEFAULT_SUBJECTS;
+};
 
-    // 3. Always ensure standard curriculum default subjects are available
-    DEFAULT_SUBJECTS.forEach(s => subjectSet.add(s));
-
-    // 4. Any subjects taught by teachers or present in assignments for this school
-    if (state.users) {
-        state.users.forEach(u => {
-            if ((!schoolId || u.schoolId === schoolId) && u.role === 'teacher' && u.subjects) {
-                u.subjects.forEach(s => s && subjectSet.add(s.trim()));
-            }
-        });
+export const setSchoolSubjects = (state: AppState, schoolId: string | undefined, subjects: string[]) => {
+    if (schoolId) {
+        const school = getSchool(state, schoolId);
+        if (school) {
+            school.subjects = subjects;
+        }
     }
-
-    if (state.teacherAssignments) {
-        state.teacherAssignments.forEach(a => {
-            if (a.subject) subjectSet.add(a.subject.trim());
-        });
-    }
-
-    return Array.from(subjectSet).filter(Boolean);
+    state.subjects = subjects;
 };
 
 export const getSchoolClassKey = (schoolId: string | undefined, classKey: string): string => {
@@ -1677,17 +1663,6 @@ export const setSchoolSubjectRequirements = (state: AppState, schoolId: string |
         }
     }
     state.subjectRequirements = reqs;
-};
-
-export const setSchoolSubjects = (state: AppState, schoolId: string | undefined, subjects: string[]) => {
-    if (schoolId) {
-        const school = getSchool(state, schoolId);
-        if (school) {
-            school.subjects = subjects;
-            return;
-        }
-    }
-    state.subjects = subjects;
 };
 
 export const clearSchoolGrades = (state: AppState, schoolId: string | undefined) => {
