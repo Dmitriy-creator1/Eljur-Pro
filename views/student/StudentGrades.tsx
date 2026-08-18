@@ -133,10 +133,23 @@ export const StudentGrades = ({ state, user }: { state: AppState, user: User }) 
         }
     };
 
+    const classHeadmaster = H.getClassHeadmaster(state, user.schoolId, user.class || '', user.letter || '');
+
     return (
-        <div className="space-y-8">
-             <div className="flex justify-between items-center no-print">
-                <h3 className="font-bold text-xl text-slate-800 dark:text-white">{t('current_performance')}</h3>
+        <div className="space-y-6">
+             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
+                <div>
+                    <h3 className="font-bold text-xl text-slate-800 dark:text-white">{t('current_performance')}</h3>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                        {lang === 'ru' ? `Класс: ${user.class}${user.letter}` : `Class: ${user.class}${user.letter}`}
+                        {classHeadmaster && (
+                            <span className="ml-2 pl-2 border-l border-slate-300 dark:border-slate-700 text-blue-600 dark:text-blue-400 font-medium">
+                                👑 {lang === 'ru' ? 'Классный руководитель: ' : 'Class Teacher: '}
+                                <span className="font-bold">{classHeadmaster.fio}</span>
+                            </span>
+                        )}
+                    </div>
+                </div>
                 <div className="flex gap-2">
                     <Select value={currentQuarter} onChange={e => setCurrentQuarter(e.target.value)} className="w-32 bg-white border-slate-300 shadow-sm">
                         <option value="Q1">1 {t('quarter')}</option>

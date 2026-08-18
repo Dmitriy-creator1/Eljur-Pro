@@ -7,10 +7,14 @@ import { ScheduleView } from './teacher/ScheduleView';
 import { HomeworkManager } from './teacher/HomeworkManager';
 import { Gradebook } from './teacher/Gradebook';
 import { StudentRating } from './shared/StudentRating';
+import { HomeroomSummaryView } from './shared/HomeroomSummaryView';
 import { Modal, Button } from '../components/ui';
 
 export default function TeacherDashboard({ state, onUpdate, user }: { state: AppState, onUpdate: (s: AppState) => void, user: User }) {
-  const [view, setView] = useState<'schedule' | 'homework' | 'grades' | 'rating' | 'messages' | 'announcements'>(() => {
+  const leadingClasses = H.getUserLeadingClasses(state, user.schoolId, user.id);
+  const hasHomeroom = leadingClasses.length > 0;
+
+  const [view, setView] = useState<'schedule' | 'homework' | 'grades' | 'rating' | 'homeroom' | 'messages' | 'announcements'>(() => {
     return (localStorage.getItem(`eljur_tab_${user.id}`) as any) || 'schedule';
   });
   const [hasUnsavedGrades, setHasUnsavedGrades] = useState(false);
@@ -45,6 +49,13 @@ export default function TeacherDashboard({ state, onUpdate, user }: { state: App
         <TabButton active={view === 'schedule'} onClick={() => handleTabClick('schedule')} label={t('schedule')} />
         <TabButton active={view === 'homework'} onClick={() => handleTabClick('homework')} label={t('homework')} />
         <TabButton active={view === 'grades'} onClick={() => handleTabClick('grades')} label={t('journal')} />
+        {hasHomeroom && (
+          <TabButton 
+            active={view === 'homeroom'} 
+            onClick={() => handleTabClick('homeroom')} 
+            label={`👑 ${t('homeroom_tab')} (${leadingClasses.map(c => `${c.class}${c.letter}`).join(', ')})`} 
+          />
+        )}
         <TabButton active={view === 'rating'} onClick={() => handleTabClick('rating')} label={t('rating')} />
         <TabButton active={view === 'messages'} onClick={() => handleTabClick('messages')} label={t('messages')} badgeCount={unreadMessagesCount} />
         <TabButton active={view === 'announcements'} onClick={() => handleTabClick('announcements')} label={t('announcements')} badgeCount={unreadAnnouncementsCount} />
@@ -54,6 +65,7 @@ export default function TeacherDashboard({ state, onUpdate, user }: { state: App
         {view === 'schedule' && <ScheduleView state={state} user={user} lang={lang} />}
         {view === 'homework' && <HomeworkManager state={state} onUpdate={onUpdate} user={user} lang={lang} />}
         {view === 'grades' && <Gradebook state={state} onUpdate={onUpdate} user={user} lang={lang} setHasUnsavedGrades={setHasUnsavedGrades} hasUnsavedGrades={hasUnsavedGrades} />}
+        {view === 'homeroom' && hasHomeroom && <HomeroomSummaryView state={state} user={user} onUpdate={onUpdate} />}
         {view === 'rating' && <StudentRating state={state} schoolId={user.schoolId} />}
         {view === 'messages' && <Messaging state={state} onUpdate={onUpdate} currentUser={user} type="messages" />}
         {view === 'announcements' && <Messaging state={state} onUpdate={onUpdate} currentUser={user} type="announcements" />}

@@ -715,6 +715,11 @@ export const Messaging: React.FC<MessagingProps> = ({ state, onUpdate, currentUs
            if (val === 'GROUP_TEACHERS') {
               // Only teachers in SAME school
               finalToIds.push(...state.users.filter(u => u.role === 'teacher' && u.schoolId === currentUser.schoolId).map(u => u.id));
+           } else if (val === 'GROUP_HEADMASTERS') {
+              // All class teachers in this school
+              const schoolClasses = H.getSchoolClasses(state, currentUser.schoolId);
+              const headmasterIds = schoolClasses.map(c => c.headmasterId).filter(Boolean) as string[];
+              finalToIds.push(...headmasterIds);
            } else if (val.startsWith('GROUP_CLASS_')) {
               const classKey = val.replace('GROUP_CLASS_', ''); // 10_A
               finalToIds.push(...state.users.filter(u => u.role === 'student' && u.schoolId === currentUser.schoolId && `${u.class}_${u.letter}` === classKey).map(u => u.id));
@@ -874,7 +879,10 @@ export const Messaging: React.FC<MessagingProps> = ({ state, onUpdate, currentUs
                         currentUser.role === 'teacher';
 
   if (isDirector || currentUser.role === 'teacher' || isEmployee) {
-     if (isDirector || isEmployee) userOptions.push({ value: 'GROUP_TEACHERS', label: t('all_teachers'), group: t('groups') });
+     if (isDirector || isEmployee) {
+        userOptions.push({ value: 'GROUP_TEACHERS', label: t('all_teachers'), group: t('groups') });
+        userOptions.push({ value: 'GROUP_HEADMASTERS', label: lang === 'ru' ? 'Все классные руководители' : 'All Class Teachers', group: t('groups') });
+     }
      
      // Classes logic
      const classes = state.classes.filter(c => {
@@ -913,7 +921,6 @@ export const Messaging: React.FC<MessagingProps> = ({ state, onUpdate, currentUs
 
      // DIRECTORS can message Creator
      if (isDirector && (u.role as string) === 'creator') {
-         // Already handled above, but specific check for Creator -> Director logic if needed
          return; 
      }
      
@@ -930,6 +937,9 @@ export const Messaging: React.FC<MessagingProps> = ({ state, onUpdate, currentUs
          if (u.role === 'employee' && u.employeePermissions?.isAdministration) canSee = true;
          // Can see students in my classes
          if (u.role === 'student' && currentUser.classes?.includes(`${u.class}_${u.letter}`)) canSee = true;
+         // If I am a homeroom teacher, I can see all students in my leading classes
+         const myLeadingClasses = H.getUserLeadingClasses(state, currentUser.schoolId, currentUser.id);
+         if (u.role === 'student' && myLeadingClasses.some(c => c.class === u.class && c.letter === u.letter)) canSee = true;
      } else if (currentUser.role === 'student') {
          if (u.role === 'director') canSee = true;
          // Can see my teachers
@@ -938,6 +948,9 @@ export const Messaging: React.FC<MessagingProps> = ({ state, onUpdate, currentUs
          if (u.role === 'employee' && u.employeePermissions?.isAdministration) canSee = true;
          // Can see employees who are assigned to my class
          if (u.role === 'employee' && u.employeePermissions?.messagingScope?.includes(`${currentUser.class}_${currentUser.letter}`)) canSee = true;
+         // Can see my homeroom teacher (even if teacher/employee)
+         const myHomeroom = H.getClassHeadmaster(state, currentUser.schoolId, currentUser.class || '', currentUser.letter || '');
+         if (myHomeroom && u.id === myHomeroom.id) canSee = true;
      } else if (actingAsRestrictedEmployee) {
          // I am an employee writing as myself (non-admin)
          if (u.role === 'director' || u.role === 'teacher') canSee = true; 
@@ -946,25 +959,59 @@ export const Messaging: React.FC<MessagingProps> = ({ state, onUpdate, currentUs
          if (u.role === 'student') {
              if (canMessageAll) canSee = true;
              else if (employeeScopes.includes(`${u.class}_${u.letter}`)) canSee = true;
+             // If employee is homeroom teacher of a class, they can see students of that class
+             const myLeadingClasses = H.getUserLeadingClasses(state, currentUser.schoolId, currentUser.id);
+             if (myLeadingClasses.some(c => c.class === u.class && c.letter === u.letter)) canSee = true;
          }
      }
 
      if (canSee) {
+        const uLeadingClasses = H.getUserLeadingClasses(state, currentUser.schoolId, u.id);
         let groupName = '';
-        if ((u.role as string) === 'creator') groupName = t('developer');
-        else if (u.role === 'director') groupName = t('administration');
-        else if (u.role === 'employee') {
-            if (u.employeePermissions?.isAdministration) groupName = t('administration');
-            else groupName = t('employees');
+        
+        if (currentUser.role === 'student') {
+            const myHomeroom = H.getClassHeadmaster(state, currentUser.schoolId, currentUser.class || '', currentUser.letter || '');
+            if (myHomeroom && u.id === myHomeroom.id) {
+                groupName = lang === 'ru' ? 'Классный руководитель' : 'Class Teacher';
+            } else if ((u.role as string) === 'creator') {
+                groupName = t('developer');
+            } else if (u.role === 'director') {
+                groupName = t('administration');
+            } else if (u.role === 'employee') {
+                if (u.employeePermissions?.isAdministration) groupName = t('administration');
+                else groupName = t('employees');
+            } else if (u.role === 'teacher') {
+                groupName = t('teachers');
+            } else {
+                groupName = `${t('students')} ${u.class || ''}${u.letter || ''}`;
+            }
+        } else {
+            // Non-student (Director, Teacher, Employee)
+            if (uLeadingClasses.length > 0 && u.role !== 'student') {
+                const classNames = uLeadingClasses.map(c => `${c.class}${c.letter}`).join(' и ');
+                groupName = lang === 'ru' ? `Клас. рук. ${classNames}` : `Class Teacher ${classNames}`;
+            } else if ((u.role as string) === 'creator') {
+                groupName = t('developer');
+            } else if (u.role === 'director') {
+                groupName = t('administration');
+            } else if (u.role === 'employee') {
+                if (u.employeePermissions?.isAdministration) groupName = t('administration');
+                else groupName = t('employees');
+            } else if (u.role === 'teacher') {
+                groupName = t('teachers');
+            } else {
+                groupName = `${t('students')} ${u.class || ''}${u.letter || ''}`;
+            }
         }
-        else if (u.role === 'teacher') groupName = t('teachers');
-        else groupName = `${t('students')} ${u.class || ''}${u.letter || ''}`;
         
         // Format Label: Short FIO
         let label = H.formatShortName(u.fio);
         
         // Add Suffixes
-        if (u.role === 'teacher') {
+        if (uLeadingClasses.length > 0 && u.role !== 'student') {
+            const classNames = uLeadingClasses.map(c => `${c.class}${c.letter}`).join(', ');
+            label += ` (${lang === 'ru' ? 'Кл. рук. ' : 'Class Teacher '}${classNames})`;
+        } else if (u.role === 'teacher') {
             // Get subjects from LOAD (teacherAssignments), not just u.subjects
             const assignedSubjects = Array.from(new Set(
                 state.teacherAssignments

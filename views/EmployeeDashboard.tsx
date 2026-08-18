@@ -6,6 +6,7 @@ import * as H from '../utils/helpers';
 import { UserManagement } from './admin/UserManagement';
 import { ScheduleEditor } from './admin/ScheduleEditor';
 import { StudentRating } from './shared/StudentRating';
+import { HomeroomSummaryView } from './shared/HomeroomSummaryView';
 import { TeacherLoadManager } from './admin/TeacherLoadManager';
 import { GroupManager } from './admin/GroupManager';
 import { GradingSetup } from './admin/GradingSetup';
@@ -17,9 +18,14 @@ interface Props {
 }
 
 export default function EmployeeDashboard({ state, onUpdate, user }: Props) {
+  const leadingClasses = H.getUserLeadingClasses(state, user.schoolId, user.id);
+  const hasHomeroom = leadingClasses.length > 0;
+
   const allowedTabs = user.employeePermissions?.allowedTabs || ['messages']; 
+  const effectiveAllowedTabs = hasHomeroom && !allowedTabs.includes('homeroom') ? [...allowedTabs, 'homeroom'] : allowedTabs;
+
   const [view, setView] = useState<string>(() => {
-    return (localStorage.getItem(`eljur_tab_${user.id}`) as string) || allowedTabs[0] || 'messages';
+    return (localStorage.getItem(`eljur_tab_${user.id}`) as string) || effectiveAllowedTabs[0] || 'messages';
   });
   const lang = state.settings.language || 'ru';
   const t = (k: string) => H.t(k, lang);
@@ -28,22 +34,29 @@ export default function EmployeeDashboard({ state, onUpdate, user }: Props) {
   const unreadAnnouncementsCount = H.getUnreadAnnouncementsCount(state, user);
 
   useEffect(() => {
-     if (!allowedTabs.includes(view)) {
-         setView(allowedTabs[0] || '');
+     if (!effectiveAllowedTabs.includes(view)) {
+         setView(effectiveAllowedTabs[0] || '');
      }
-  }, [allowedTabs, view]);
+  }, [effectiveAllowedTabs, view]);
 
   useEffect(() => {
     localStorage.setItem(`eljur_tab_${user.id}`, view);
   }, [view, user.id]);
 
-  if (allowedTabs.length === 0) {
+  if (effectiveAllowedTabs.length === 0) {
       return <div className="p-10 text-center text-slate-500">Нет доступных вкладок. Обратитесь к директору.</div>;
   }
 
   return (
     <div className="space-y-8">
       <div className="bg-white p-1.5 rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 flex overflow-x-auto hide-scrollbar gap-1 no-print w-full dark:bg-slate-900 dark:border-slate-800 pb-2 sm:pb-1.5">
+        {hasHomeroom && (
+          <TabButton 
+            active={view === 'homeroom'} 
+            onClick={() => setView('homeroom')} 
+            label={`👑 ${t('homeroom_tab')} (${leadingClasses.map(c => `${c.class}${c.letter}`).join(', ')})`} 
+          />
+        )}
         {allowedTabs.includes('messages') && <TabButton active={view === 'messages'} onClick={() => setView('messages')} label={t('messages')} badgeCount={unreadMessagesCount} />}
         {allowedTabs.includes('announcements') && <TabButton active={view === 'announcements'} onClick={() => setView('announcements')} label={t('announcements')} badgeCount={unreadAnnouncementsCount} />}
         {allowedTabs.includes('rating') && <TabButton active={view === 'rating'} onClick={() => setView('rating')} label={t('rating')} />}
@@ -55,6 +68,7 @@ export default function EmployeeDashboard({ state, onUpdate, user }: Props) {
       </div>
 
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+        {view === 'homeroom' && hasHomeroom && <HomeroomSummaryView state={state} user={user} onUpdate={onUpdate} />}
         {view === 'messages' && <Messaging state={state} onUpdate={onUpdate} currentUser={user} type="messages" />}
         {view === 'announcements' && <Messaging state={state} onUpdate={onUpdate} currentUser={user} type="announcements" />}
         {view === 'rating' && <StudentRating state={state} schoolId={user.schoolId} />}

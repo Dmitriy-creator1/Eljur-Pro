@@ -31,6 +31,8 @@ export const Gradebook = ({ state, onUpdate, user, lang, setHasUnsavedGrades, ha
 
    const myClasses = useMemo(() => {
         const assignedClasses = new Set(user.classes || []);
+        const leading = H.getUserLeadingClasses(localState, user.schoolId, user.id);
+        leading.forEach(c => assignedClasses.add(`${c.class}_${c.letter}`));
         schoolClasses.forEach((c: any) => {
             const classKey = `${c.class}_${c.letter}`;
             const schedule = H.getSchoolClassSchedule(localState, user.schoolId, classKey);

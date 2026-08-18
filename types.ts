@@ -5,7 +5,7 @@ export interface School {
   id: string;
   name: string;
   directorId: string; // The ID of the director who owns this school
-  classes?: { class: string; letter: string }[];
+  classes?: { class: string; letter: string; headmasterId?: string }[];
   subjects?: string[];
   gradingSystem?: GradingSystemSettings;
   gradeTypes?: GradeType[];
@@ -198,7 +198,7 @@ export interface AppState {
   schools: School[]; // List of schools
   users: User[];
   userOrder: string[]; // IDs for sorting
-  classes: { class: string; letter: string }[];
+  classes: { class: string; letter: string; headmasterId?: string }[];
   subjects: string[];
   // Key is class_letter e.g. "10_A". Value is object of days.
   schedules: Record<string, Record<string, ScheduleDay>>; 

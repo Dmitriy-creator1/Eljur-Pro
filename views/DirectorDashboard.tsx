@@ -8,6 +8,7 @@ import { TeacherLoadManager } from './admin/TeacherLoadManager';
 import { GroupManager } from './admin/GroupManager';
 import { ScheduleEditor } from './admin/ScheduleEditor';
 import { StudentRating } from './shared/StudentRating';
+import { HomeroomSummaryView } from './shared/HomeroomSummaryView';
 import { GradingSetup } from './admin/GradingSetup';
 
 interface Props {
@@ -17,7 +18,9 @@ interface Props {
 }
 
 export default function DirectorDashboard({ state, onUpdate, user }: Props) {
-  const [view, setView] = useState<'users' | 'schedule' | 'rating' | 'messages' | 'announcements' | 'load' | 'groups' | 'grading'>(() => {
+  const leadingClasses = H.getUserLeadingClasses(state, user.schoolId, user.id);
+
+  const [view, setView] = useState<'users' | 'schedule' | 'rating' | 'homeroom' | 'messages' | 'announcements' | 'load' | 'groups' | 'grading'>(() => {
     return (localStorage.getItem(`eljur_tab_${user.id}`) as any) || 'users';
   });
 
@@ -37,6 +40,11 @@ export default function DirectorDashboard({ state, onUpdate, user }: Props) {
         <TabButton active={view === 'load'} onClick={() => setView('load')} label={t('teacher_load')} />
         <TabButton active={view === 'groups'} onClick={() => setView('groups')} label={t('groups')} />
         <TabButton active={view === 'schedule'} onClick={() => setView('schedule')} label={t('schedule')} />
+        <TabButton 
+          active={view === 'homeroom'} 
+          onClick={() => setView('homeroom')} 
+          label={`👑 ${t('homeroom_tab')}${leadingClasses.length > 0 ? ` (${leadingClasses.map(c => `${c.class}${c.letter}`).join(', ')})` : ''}`} 
+        />
         <TabButton active={view === 'rating'} onClick={() => setView('rating')} label={t('rating')} />
         <TabButton active={view === 'grading'} onClick={() => setView('grading')} label={t('grading_setup')} />
         <TabButton active={view === 'messages'} onClick={() => setView('messages')} label={t('messages')} badgeCount={unreadMessagesCount} />
@@ -48,6 +56,7 @@ export default function DirectorDashboard({ state, onUpdate, user }: Props) {
         {view === 'load' && <TeacherLoadManager state={state} onUpdate={onUpdate} user={user} />}
         {view === 'groups' && <GroupManager state={state} onUpdate={onUpdate} user={user} />}
         {view === 'schedule' && <ScheduleEditor state={state} onUpdate={onUpdate} user={user} />}
+        {view === 'homeroom' && <HomeroomSummaryView state={state} user={user} onUpdate={onUpdate} />}
         {view === 'rating' && <StudentRating state={state} schoolId={user.schoolId} />}
         {view === 'grading' && <GradingSetup state={state} onUpdate={onUpdate} user={user} />}
         {view === 'messages' && <Messaging state={state} onUpdate={onUpdate} currentUser={user} type="messages" />}

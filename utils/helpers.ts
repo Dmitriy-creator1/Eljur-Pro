@@ -503,6 +503,20 @@ export const DICT: Record<string, Record<string, string>> = {
     school_users: 'Пользователи школы',
     global_list: 'Глобальный список',
     director_fio: 'ФИО Директора',
+    class_teacher: 'Классный руководитель',
+    class_teachers: 'Классные руководители',
+    all_class_teachers: 'Все классные руководители',
+    class_leadership: 'Классное руководство',
+    my_class: 'Мой класс',
+    assign_class_teacher: 'Классный руководитель',
+    not_assigned: 'Не назначен',
+    max_2_classes_reached: 'Лимит: 2 класса',
+    class_performance: 'Сводная ведомость успеваемости',
+    homeroom_grades: 'Оценки класса',
+    student_grades_overview: 'Успеваемость учеников',
+    all_quarters: 'Все четверти',
+    final_grades: 'Итоговые оценки',
+    whole_class_summary: 'Сводка по классу',
   },
   en: {
     reply: 'Reply',
@@ -1003,6 +1017,20 @@ export const DICT: Record<string, Record<string, string>> = {
     school_users: 'School Users',
     global_list: 'Global List',
     director_fio: 'Director Full Name',
+    class_teacher: 'Class Teacher',
+    class_teachers: 'Class Teachers',
+    all_class_teachers: 'All Class Teachers',
+    class_leadership: 'Homeroom Class',
+    my_class: 'My Class',
+    assign_class_teacher: 'Class Teacher',
+    not_assigned: 'Not assigned',
+    max_2_classes_reached: 'Limit: 2 classes',
+    class_performance: 'Class Performance Sheet',
+    homeroom_grades: 'Homeroom Grades',
+    student_grades_overview: 'Student Performance Overview',
+    all_quarters: 'All Quarters',
+    final_grades: 'Final Grades',
+    whole_class_summary: 'Class Summary',
   }
 };
 
@@ -1352,13 +1380,13 @@ export const getSchoolSubjectRequirements = (state: AppState, schoolId?: string)
     return {};
 };
 
-export const getSchoolClasses = (state: AppState, schoolId?: string): { class: string; letter: string }[] => {
+export const getSchoolClasses = (state: AppState, schoolId?: string): { class: string; letter: string; headmasterId?: string }[] => {
     const school = getSchool(state, schoolId);
     if (school && school.classes && school.classes.length > 0) return school.classes;
     return state.classes || [];
 };
 
-export const setSchoolClasses = (state: AppState, schoolId: string | undefined, classes: { class: string; letter: string }[]) => {
+export const setSchoolClasses = (state: AppState, schoolId: string | undefined, classes: { class: string; letter: string; headmasterId?: string }[]) => {
     if (schoolId) {
         const school = getSchool(state, schoolId);
         if (school) {
@@ -1367,6 +1395,74 @@ export const setSchoolClasses = (state: AppState, schoolId: string | undefined, 
         }
     }
     state.classes = classes;
+};
+
+export const getUserLeadingClasses = (state: AppState, schoolId: string | undefined, userId: string): { class: string; letter: string; headmasterId?: string }[] => {
+    if (!userId) return [];
+    const classes = getSchoolClasses(state, schoolId);
+    return classes.filter(c => c.headmasterId === userId);
+};
+
+export const getClassHeadmaster = (state: AppState, schoolId: string | undefined, classNum: string, classLetter: string): User | null => {
+    const classes = getSchoolClasses(state, schoolId);
+    const cls = classes.find(c => c.class === classNum && c.letter === classLetter);
+    if (!cls || !cls.headmasterId) return null;
+    return state.users.find(u => u.id === cls.headmasterId) || null;
+};
+
+export const getEligibleHeadmasterCandidates = (state: AppState, schoolId: string | undefined): User[] => {
+    return state.users.filter(u => {
+        if (schoolId && u.schoolId && u.schoolId !== schoolId) return false;
+        if ((u.role as string) === 'creator') return false;
+        return u.role === 'teacher' || u.role === 'employee' || u.role === 'director';
+    });
+};
+
+export const canUserBeAssignedAsHeadmaster = (
+    state: AppState, 
+    schoolId: string | undefined, 
+    candidateId: string, 
+    currentClassNum: string, 
+    currentClassLetter: string
+): { canAssign: boolean; currentCount: number; leadingClasses: string[] } => {
+    const classes = getSchoolClasses(state, schoolId);
+    const leading = classes.filter(c => c.headmasterId === candidateId);
+    const leadingNames = leading.map(c => `${c.class}${c.letter}`);
+    const isAlreadyThisClass = leading.some(c => c.class === currentClassNum && c.letter === currentClassLetter);
+    
+    // If user already leads this class, they can stay
+    if (isAlreadyThisClass) {
+        return { canAssign: true, currentCount: leading.length, leadingClasses: leadingNames };
+    }
+    
+    // Max 2 classes per person
+    const canAssign = leading.length < 2;
+    return { canAssign, currentCount: leading.length, leadingClasses: leadingNames };
+};
+
+export const setClassHeadmaster = (
+    state: AppState, 
+    schoolId: string | undefined, 
+    classNum: string, 
+    classLetter: string, 
+    headmasterId?: string
+): void => {
+    if (schoolId) {
+        const school = getSchool(state, schoolId);
+        if (school) {
+            if (!school.classes) school.classes = [...(state.classes || [])];
+            const cls = school.classes.find(c => c.class === classNum && c.letter === classLetter);
+            if (cls) {
+                cls.headmasterId = headmasterId || undefined;
+            }
+        }
+    }
+    if (state.classes) {
+        const cls = state.classes.find(c => c.class === classNum && c.letter === classLetter);
+        if (cls) {
+            cls.headmasterId = headmasterId || undefined;
+        }
+    }
 };
 
 export const getSchoolSubjects = (state: AppState, schoolId?: string): string[] => {
